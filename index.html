@@ -2,118 +2,112 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#0d2137">
 <title>SjöNav</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-
   :root {
-    --bg:        #f2f6fb;
-    --surface:   #ffffff;
-    --surface2:  #e8f0f8;
-    --navy:      #0d2137;
-    --accent:    #1565c0;
-    --accent2:   #2196f3;
-    --text:      #0d2137;
-    --muted:     #5a7a9a;
-    --border:    rgba(13,33,55,0.1);
-    --danger:    #c62828;
-    --success:   #1b6e3f;
-    --warn:      #7a4d00;
-    --warn-bg:   #fff3cd;
-    --radius:    14px;
-    --radius-sm: 9px;
-    --font:      'DM Sans', system-ui, sans-serif;
-    --mono:      'DM Mono', monospace;
+    --bg: #f2f6fb; --surface: #ffffff; --surface2: #e8f0f8;
+    --navy: #0d2137; --accent: #1565c0; --accent2: #2196f3;
+    --text: #0d2137; --muted: #5a7a9a; --border: rgba(13,33,55,0.1);
+    --danger: #c62828; --success: #1b6e3f; --warn: #7a4d00; --warn-bg: #fff3cd;
+    --radius: 14px; --radius-sm: 9px;
+    --font: 'DM Sans', system-ui, sans-serif; --mono: 'DM Mono', monospace;
   }
-
   html, body { height: 100%; overflow: hidden; background: var(--bg); font-family: var(--font); color: var(--text); }
-
   #app { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 
-  /* TOP BAR */
   .topbar {
-    background: var(--navy);
-    color: #fff;
-    padding: 12px 16px 10px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-    padding-top: max(12px, env(safe-area-inset-top));
+    background: var(--navy); color: #fff;
+    padding: max(12px, env(safe-area-inset-top)) 16px 10px;
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
   }
   .topbar-logo { font-size: 18px; font-weight: 500; letter-spacing: -0.5px; }
   .topbar-logo span { color: #64b5f6; }
-  .gps-pill {
-    display: flex; align-items: center; gap: 5px;
-    background: rgba(255,255,255,0.1); border-radius: 20px;
-    padding: 4px 10px; font-size: 11px; color: rgba(255,255,255,0.85);
-  }
+  .gps-pill { display: flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.1); border-radius: 20px; padding: 4px 10px; font-size: 11px; color: rgba(255,255,255,0.85); }
   .gps-dot { width: 7px; height: 7px; border-radius: 50%; background: #4caf50; flex-shrink: 0; }
   .gps-dot.searching { background: #ff9800; animation: blink 1s infinite; }
   .gps-dot.error { background: #f44336; }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
 
-  /* TABS */
   .tabs { display: flex; background: var(--navy); padding: 0 8px 10px; gap: 4px; flex-shrink: 0; }
-  .tab {
-    flex: 1; padding: 7px 4px; text-align: center;
-    font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.45);
-    border-radius: 8px; cursor: pointer; transition: all 0.15s; letter-spacing: 0.2px;
-  }
+  .tab { flex: 1; padding: 7px 4px; text-align: center; font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.45); border-radius: 8px; cursor: pointer; transition: all 0.15s; }
   .tab.active { background: rgba(255,255,255,0.12); color: #fff; }
 
-  /* SCROLL AREA */
-  .content { flex: 1; overflow-y: auto; padding: 12px 12px max(12px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
+  .content { flex: 1; overflow-y: auto; padding: 12px 12px max(12px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
   .content::-webkit-scrollbar { display: none; }
-  .page { display: none; flex-direction: column; gap: 10px; }
+  .page { display: none; flex-direction: column; gap: 10px; flex: 1; }
   .page.active { display: flex; }
+  .page:not(#page-karta).active { overflow-y: auto; padding: 12px 12px max(12px, env(safe-area-inset-bottom)); gap: 10px; }
 
-  /* CARDS */
   .card { background: var(--surface); border-radius: var(--radius); border: 0.5px solid var(--border); padding: 14px; }
   .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
   .card-title { font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
 
-  /* STAT GRID */
   .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
   .stat { background: var(--surface); border-radius: var(--radius-sm); border: 0.5px solid var(--border); padding: 12px 8px; text-align: center; }
   .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
   .stat-val { font-size: 24px; font-weight: 300; color: var(--text); font-family: var(--mono); line-height: 1; }
   .stat-unit { font-size: 10px; color: var(--muted); margin-top: 2px; }
 
-  /* COMPASS */
+  /* KARTA HELSKÄRM */
+  #page-karta { padding: 0; gap: 0; position: relative; height: 100%; }
+  #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
+  .map-stats-overlay {
+    position: absolute; top: 10px; left: 10px; right: 10px; z-index: 10;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; pointer-events: none;
+  }
+  .map-stat {
+    background: rgba(255,255,255,0.92); border-radius: 10px;
+    border: 0.5px solid rgba(13,33,55,0.12); padding: 8px 6px; text-align: center;
+    backdrop-filter: blur(4px);
+  }
+  .map-stat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
+  .map-stat-val { font-size: 20px; font-weight: 300; color: var(--text); font-family: var(--mono); line-height: 1; }
+  .map-stat-unit { font-size: 9px; color: var(--muted); margin-top: 1px; }
+  .map-btns-overlay {
+    position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); right: 10px; z-index: 10;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .map-fab {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: rgba(255,255,255,0.92); border: 0.5px solid rgba(13,33,55,0.12);
+    font-size: 16px; color: var(--accent); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px); font-family: var(--font); font-weight: 500;
+  }
+  .map-fab.active { background: var(--accent); color: #fff; }
+  .map-pos-overlay {
+    position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); left: 10px; z-index: 10;
+    background: rgba(255,255,255,0.88); border-radius: 8px; border: 0.5px solid rgba(13,33,55,0.12);
+    padding: 6px 10px; backdrop-filter: blur(4px);
+  }
+  .map-pos-text { font-size: 11px; font-family: var(--mono); color: var(--text); line-height: 1.5; }
+  .map-pos-acc { font-size: 10px; color: var(--muted); }
+  .leaflet-control-zoom { display: none; }
+  .leaflet-control-attribution { font-size: 9px !important; }
+
   .compass-wrap { display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 8px 0 4px; }
   #compassCanvas { width: 160px; height: 160px; }
   .compass-heading { font-size: 28px; font-weight: 300; font-family: var(--mono); color: var(--text); text-align: center; margin-top: 6px; }
   .compass-dir { font-size: 13px; color: var(--muted); text-align: center; }
 
-  /* POSITION */
   .coord-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 0.5px solid var(--border); }
   .coord-row:last-child { border-bottom: none; }
   .coord-label { font-size: 12px; color: var(--muted); }
   .coord-val { font-size: 13px; font-family: var(--mono); font-weight: 500; color: var(--text); }
 
-  /* MAP */
-  #mapCanvas { width: 100%; display: block; border-radius: var(--radius-sm); }
-  .map-controls { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
-  .map-btn {
-    width: 34px; height: 34px; border-radius: 8px;
-    background: var(--surface2); border: 0.5px solid var(--border);
-    font-size: 16px; color: var(--accent); cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-  }
-
-  /* WAYPOINTS */
   .wp-add { display: flex; gap: 6px; margin-bottom: 8px; }
   .wp-add input { flex: 1; padding: 9px 12px; border-radius: 8px; border: 0.5px solid var(--border); background: var(--surface2); font-size: 13px; font-family: var(--font); color: var(--text); outline: none; }
   .wp-add input:focus { border-color: var(--accent2); }
   .wp-add button { padding: 9px 14px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: var(--font); white-space: nowrap; }
   .wp-list { display: flex; flex-direction: column; gap: 6px; }
-  .wp-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface2); border-radius: 10px; cursor: pointer; transition: background 0.1s; }
+  .wp-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface2); border-radius: 10px; cursor: pointer; }
   .wp-item.active-wp { background: #e3f0fc; border: 0.5px solid #90caf9; }
   .wp-num { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 500; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .wp-info { flex: 1; }
@@ -121,7 +115,6 @@
   .wp-meta { font-size: 11px; color: var(--muted); margin-top: 1px; }
   .wp-del { font-size: 16px; color: var(--muted); padding: 4px; cursor: pointer; }
 
-  /* WEATHER */
   .wx-main { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
   .wx-icon { font-size: 44px; line-height: 1; }
   .wx-temp { font-size: 42px; font-weight: 300; font-family: var(--mono); }
@@ -131,22 +124,7 @@
   .wx-cell-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
   .wx-cell-val { font-size: 15px; font-weight: 500; margin-top: 3px; }
 
-  /* ALERT */
-  .alert { background: var(--warn-bg); border: 0.5px solid #f0c040; border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--warn); display: flex; align-items: center; gap: 8px; }
-  .alert-icon { font-size: 16px; flex-shrink: 0; }
-  .alert.hidden { display: none; }
 
-  /* SOS */
-  .sos-btn {
-    width: 100%; padding: 16px; background: var(--surface); border: 2px solid var(--danger);
-    border-radius: var(--radius); color: var(--danger); font-size: 15px; font-weight: 500;
-    font-family: var(--font); letter-spacing: 1px; cursor: pointer; transition: background 0.15s;
-    margin-bottom: 6px;
-  }
-  .sos-btn:active { background: #ffebee; }
-  .sos-sub { font-size: 11px; color: var(--muted); text-align: center; }
-
-  /* PERMISSION BANNER */
   .perm-banner { background: #e3f2fd; border: 0.5px solid #90caf9; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #0d47a1; }
   .perm-btn { display: block; margin-top: 8px; padding: 8px 14px; background: var(--accent); color: #fff; border: none; border-radius: 7px; font-size: 13px; cursor: pointer; font-family: var(--font); }
 </style>
@@ -164,6 +142,7 @@
     <div class="tab active" data-tab="karta">🗺 Karta</div>
     <div class="tab" data-tab="kompass">🧭 Kompass</div>
     <div class="tab" data-tab="waypoints">📍 Rutt</div>
+
     <div class="tab" data-tab="vader">🌤 Väder</div>
   </div>
 
@@ -171,26 +150,20 @@
 
     <!-- KARTA -->
     <div class="page active" id="page-karta">
-      <div class="stat-grid">
-        <div class="stat"><div class="stat-label">Fart</div><div class="stat-val" id="speedVal">--</div><div class="stat-unit">knop</div></div>
-        <div class="stat"><div class="stat-label">Kurs</div><div class="stat-val" id="cogVal">--</div><div class="stat-unit">grader</div></div>
-        <div class="stat"><div class="stat-label">Höjd</div><div class="stat-val" id="altVal">--</div><div class="stat-unit">meter</div></div>
+      <div id="map"></div>
+      <div class="map-stats-overlay">
+        <div class="map-stat"><div class="map-stat-label">Fart</div><div class="map-stat-val" id="speedVal">--</div><div class="map-stat-unit">knop</div></div>
+        <div class="map-stat"><div class="map-stat-label">Kurs</div><div class="map-stat-val" id="cogVal">--</div><div class="map-stat-unit">grader</div></div>
+        <div class="map-stat"><div class="map-stat-label">Höjd</div><div class="map-stat-val" id="altVal">--</div><div class="map-stat-unit">meter</div></div>
       </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Karta</div><div style="font-size:11px;color:var(--muted)" id="mapZoomLabel">Zoom: normal</div></div>
-        <canvas id="mapCanvas" height="260"></canvas>
-        <div class="map-controls">
-          <div class="map-btn" id="btnZoomIn">+</div>
-          <div class="map-btn" id="btnZoomOut">−</div>
-          <div class="map-btn" id="btnCenter">⊙</div>
-        </div>
+      <div class="map-pos-overlay">
+        <div class="map-pos-text" id="latVal">--</div>
+        <div class="map-pos-text" id="lonVal">--</div>
+        <div class="map-pos-acc" id="accVal">--</div>
       </div>
-      <div class="alert hidden" id="depthAlert"><span class="alert-icon">⚠</span> Grunt vatten — minska fart och var försiktig</div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Position</div></div>
-        <div class="coord-row"><div class="coord-label">Latitud</div><div class="coord-val" id="latVal">--</div></div>
-        <div class="coord-row"><div class="coord-label">Longitud</div><div class="coord-val" id="lonVal">--</div></div>
-        <div class="coord-row"><div class="coord-label">Noggrannhet</div><div class="coord-val" id="accVal">--</div></div>
+      <div class="map-btns-overlay">
+        <div class="map-fab" id="btnNautical" title="Sjökort">⚓</div>
+        <div class="map-fab" id="btnCenter" title="Centrera">⊙</div>
       </div>
     </div>
 
@@ -221,14 +194,14 @@
         <div class="card-header"><div class="card-title">Lägg till waypoint</div></div>
         <div class="wp-add">
           <input type="text" id="wpNameInput" placeholder="Namn (t.ex. Sandhamn)" maxlength="30">
-          <button id="wpAddBtn">+ GPS</button>
+          <button id="wpAddBtn">+ Spara GPS</button>
         </div>
         <div style="font-size:11px;color:var(--muted)">Sparar din nuvarande GPS-position som waypoint.</div>
       </div>
       <div class="card">
         <div class="card-header"><div class="card-title">Sparade waypoints</div></div>
         <div class="wp-list" id="wpList">
-          <div style="font-size:13px;color:var(--muted);text-align:center;padding:12px">Inga waypoints ännu. Navigera till en plats och spara!</div>
+          <div style="font-size:13px;color:var(--muted);text-align:center;padding:12px">Inga waypoints ännu.</div>
         </div>
       </div>
     </div>
@@ -243,10 +216,7 @@
         <div class="card-header"><div class="card-title">Väder nu</div><div style="font-size:11px;color:var(--muted)" id="wxLocation">--</div></div>
         <div class="wx-main">
           <div class="wx-icon" id="wxIcon">⛅</div>
-          <div>
-            <div class="wx-temp" id="wxTemp">--°</div>
-            <div class="wx-desc" id="wxDesc">Laddar…</div>
-          </div>
+          <div><div class="wx-temp" id="wxTemp">--°</div><div class="wx-desc" id="wxDesc">Laddar…</div></div>
         </div>
         <div class="wx-grid">
           <div class="wx-cell"><div class="wx-cell-label">Vind</div><div class="wx-cell-val" id="wxWind">--</div></div>
@@ -262,451 +232,281 @@
         <div class="coord-row"><div class="coord-label">Beaufortskala</div><div class="coord-val" id="wxBft">--</div></div>
         <div class="coord-row"><div class="coord-label">Rekommendation</div><div class="coord-val" id="wxRec" style="font-family:var(--font);font-size:12px;max-width:180px;text-align:right">--</div></div>
       </div>
-      <button class="sos-btn" id="sosBtn">⚡ SOS — NÖDANROP</button>
-      <div class="sos-sub">Håll inne 3 sek för att aktivera</div>
+
     </div>
 
   </div>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ---- STATE ----
-let lat = null, lon = null, acc = null, alt = null;
-let speed = null, heading = null, compassHeading = null;
-let watchId = null;
-let waypoints = JSON.parse(localStorage.getItem('sjonav_wps') || '[]');
-let mapZoom = 1, mapTrack = [];
-let activeWpIndex = 0;
-let sosTimer = null;
+let lat=null,lon=null,acc=null,alt=null,speed=null,heading=null,compassHeading=null;
+let watchId=null, mapTrack=[], waypoints=JSON.parse(localStorage.getItem('sjonav_wps')||'[]');
+let activeWpIndex=0, sosTimer=null;
+let map=null, boatMarker=null, trackLine=null, wpMarkers=[];
+let mapFollowBoat=true, nauticalLayer=null, osmLayer=null, nauticalOn=false;
+let anchorPos=null, targetCourse=null;
+
+// ---- WARNING SETTINGS (depth only) ----
+let warnings = JSON.parse(localStorage.getItem('sjonav_warn')||'{}');
+if(!warnings.depth) warnings.depth={on:false,val:3};
+function saveWarnings(){localStorage.setItem('sjonav_warn',JSON.stringify(warnings));}
 
 // ---- TABS ----
-document.querySelectorAll('.tab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
     t.classList.add('active');
-    document.getElementById('page-' + t.dataset.tab).classList.add('active');
+    document.getElementById('page-'+t.dataset.tab).classList.add('active');
+    if(t.dataset.tab==='karta') setTimeout(()=>map&&map.invalidateSize(),100);
   });
 });
 
 // ---- GPS ----
-function startGPS() {
-  if (!navigator.geolocation) {
-    setGpsStatus('error', 'GPS saknas');
-    return;
-  }
-  setGpsStatus('searching', 'Söker GPS…');
-  watchId = navigator.geolocation.watchPosition(onPos, onPosErr, {
-    enableHighAccuracy: true, maximumAge: 2000, timeout: 15000
-  });
+function startGPS(){
+  if(!navigator.geolocation){setGpsStatus('error','GPS saknas');return;}
+  setGpsStatus('searching','Söker GPS…');
+  watchId=navigator.geolocation.watchPosition(onPos,onPosErr,{enableHighAccuracy:true,maximumAge:2000,timeout:15000});
+}
+function onPos(pos){
+  lat=pos.coords.latitude; lon=pos.coords.longitude; acc=pos.coords.accuracy; alt=pos.coords.altitude;
+  if(pos.coords.speed!=null) speed=pos.coords.speed*1.94384;
+  if(pos.coords.heading!=null&&pos.coords.heading===pos.coords.heading) heading=pos.coords.heading;
+  setGpsStatus('ok','GPS aktiv');
+  mapTrack.push({lat,lon});
+  if(mapTrack.length>300) mapTrack.shift();
+  updateUI(); updateMap(); checkWarnings();
+  if(mapTrack.length===1) fetchWeather();
+}
+function onPosErr(e){setGpsStatus('error','GPS: '+(e.code===1?'Nekad':e.code===2?'Ej tillgänglig':'Timeout'));}
+function setGpsStatus(state,text){
+  document.getElementById('gpsDot').className='gps-dot '+(state==='ok'?'':state);
+  document.getElementById('gpsStatus').textContent=text;
 }
 
-function onPos(pos) {
-  lat = pos.coords.latitude;
-  lon = pos.coords.longitude;
-  acc = pos.coords.accuracy;
-  alt = pos.coords.altitude;
-  if (pos.coords.speed != null) speed = pos.coords.speed * 1.94384; // m/s → knots
-  if (pos.coords.heading != null && pos.coords.heading === pos.coords.heading) heading = pos.coords.heading;
-
-  setGpsStatus('ok', 'GPS aktiv');
-  mapTrack.push({lat, lon});
-  if (mapTrack.length > 200) mapTrack.shift();
-
-  updateUI();
-  drawMap();
-
-  // fetch weather once when we get first fix
-  if (mapTrack.length === 1) fetchWeather();
+// ---- WARNINGS CHECK ----
+const activeAlerts={};
+function checkWarnings(){
+  // Depth warning is handled externally via NMEA - placeholder only
 }
 
-function onPosErr(e) {
-  setGpsStatus('error', 'GPS fel: ' + (e.code === 1 ? 'Nekad' : e.code === 2 ? 'Ej tillgänglig' : 'Timeout'));
-}
-
-function setGpsStatus(state, text) {
-  const dot = document.getElementById('gpsDot');
-  const lbl = document.getElementById('gpsStatus');
-  dot.className = 'gps-dot ' + (state === 'ok' ? '' : state);
-  lbl.textContent = text;
-}
+// ---- DIRS ----
+const dirs=['N','NNO','NO','ONO','O','OSO','SO','SSO','S','SSV','SV','VSV','V','VNV','NV','NNV'];
+function dirFromDeg(d){return dirs[Math.round(((d%360)+360)%360/22.5)%16];}
 
 // ---- UI UPDATE ----
-const dirs = ['N','NNO','NO','ONO','O','OSO','SO','SSO','S','SSV','SV','VSV','V','VNV','NV','NNV'];
-function dirFromDeg(d) { return dirs[Math.round(((d%360)+360)%360 / 22.5) % 16]; }
-
-function fmt(v, dec) { return v == null ? '--' : (+v).toFixed(dec); }
-
-function updateUI() {
-  const spd = speed != null ? fmt(speed, 1) : '--';
-  const cog = heading != null ? Math.round(((heading%360)+360)%360) : '--';
-  document.getElementById('speedVal').textContent = spd;
-  document.getElementById('cogVal').textContent = cog;
-  document.getElementById('altVal').textContent = alt != null ? fmt(alt, 0) : '--';
-  document.getElementById('latVal').textContent = lat != null ? lat.toFixed(5) + '° N' : '--';
-  document.getElementById('lonVal').textContent = lon != null ? lon.toFixed(5) + '° Ö' : '--';
-  document.getElementById('accVal').textContent = acc != null ? '± ' + Math.round(acc) + ' m' : '--';
-  document.getElementById('speedVal2').textContent = spd;
-  document.getElementById('cogVal2').textContent = cog;
-
-  // nearest waypoint distance
-  if (lat != null && waypoints.length > 0) {
-    const wp = waypoints[activeWpIndex] || waypoints[0];
-    const d = haversine(lat, lon, wp.lat, wp.lon);
-    document.getElementById('wpDistVal').textContent = d.toFixed(2);
-  } else {
-    document.getElementById('wpDistVal').textContent = '--';
-  }
-
+function updateUI(){
+  const spd=speed!=null?speed.toFixed(1):'--';
+  const cog=heading!=null?Math.round(((heading%360)+360)%360):'--';
+  document.getElementById('speedVal').textContent=spd;
+  document.getElementById('cogVal').textContent=cog;
+  document.getElementById('altVal').textContent=alt!=null?Math.round(alt):'--';
+  document.getElementById('latVal').textContent=lat!=null?lat.toFixed(5)+'° N':'--';
+  document.getElementById('lonVal').textContent=lon!=null?lon.toFixed(5)+'° Ö':'--';
+  document.getElementById('accVal').textContent=acc!=null?'± '+Math.round(acc)+' m':'--';
+  document.getElementById('speedVal2').textContent=spd;
+  document.getElementById('cogVal2').textContent=cog;
+  if(lat!=null&&waypoints.length>0){
+    const wp=waypoints[activeWpIndex]||waypoints[0];
+    document.getElementById('wpDistVal').textContent=haversine(lat,lon,wp.lat,wp.lon).toFixed(2);
+  } else document.getElementById('wpDistVal').textContent='--';
   drawCompass();
 }
 
+// ---- MAP ----
+function initMap(){
+  map=L.map('map',{zoomControl:false,attributionControl:true,touchZoom:true,tap:false}).setView([59.3,18.0],13);
+
+  osmLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19, attribution:'© OpenStreetMap'
+  }).addTo(map);
+
+  nauticalLayer=L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{
+    maxZoom:18, opacity:1, attribution:'© OpenSeaMap'
+  });
+
+  const boatSvg=`<svg width="28" height="28" viewBox="0 0 28 28" style="transform-origin:center"><polygon points="14,2 9,22 14,17 19,22" fill="#c62828" stroke="#fff" stroke-width="1"/></svg>`;
+  const boatIcon=L.divIcon({html:boatSvg,iconSize:[28,28],iconAnchor:[14,14],className:'boat-icon'});
+  boatMarker=L.marker([59.3,18.0],{icon:boatIcon,zIndexOffset:1000}).addTo(map);
+  trackLine=L.polyline([],{color:'#1565c0',weight:2,opacity:0.5,dashArray:'5,4'}).addTo(map);
+}
+
+let anchorCircle=null;
+function updateMap(){
+  if(!map||lat==null) return;
+  boatMarker.setLatLng([lat,lon]);
+  trackLine.setLatLngs(mapTrack.map(p=>[p.lat,p.lon]));
+  if(mapFollowBoat) map.setView([lat,lon]);
+
+  const h=compassHeading!=null?compassHeading:(heading!=null?heading:0);
+  const el=boatMarker.getElement();
+  if(el){const svg=el.querySelector('svg');if(svg)svg.style.transform=`rotate(${h}deg)`;}
+
+  wpMarkers.forEach(m=>map.removeLayer(m));
+  wpMarkers=[];
+  waypoints.forEach((wp,i)=>{
+    const icon=L.divIcon({
+      html:`<div style="width:24px;height:24px;background:${i===activeWpIndex?'#1565c0':'#78909c'};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;font-family:sans-serif;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3)">${i+1}</div>`,
+      iconSize:[24,24],iconAnchor:[12,12],className:''
+    });
+    wpMarkers.push(L.marker([wp.lat,wp.lon],{icon}).bindTooltip(wp.name,{permanent:false,direction:'top'}).addTo(map));
+  });
+
+  if(anchorPos){
+    if(anchorCircle) map.removeLayer(anchorCircle);
+    anchorCircle=L.circle([anchorPos.lat,anchorPos.lon],{radius:warnings.anchor.val,color:'#ff9800',fillColor:'#ff9800',fillOpacity:0.08,weight:1.5,dashArray:'4,4'}).addTo(map);
+  }
+}
+
+document.getElementById('btnNautical').addEventListener('click',()=>{
+  nauticalOn=!nauticalOn;
+  if(nauticalOn){nauticalLayer.addTo(map);document.getElementById('btnNautical').classList.add('active');}
+  else{map.removeLayer(nauticalLayer);document.getElementById('btnNautical').classList.remove('active');}
+});
+document.getElementById('btnCenter').addEventListener('click',()=>{mapFollowBoat=true;if(map&&lat)map.setView([lat,lon]);});
+map&&map.on('dragstart',()=>mapFollowBoat=false);
+
 // ---- COMPASS ----
-function tryCompassPermission() {
-  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    document.getElementById('compassPermBanner').style.display = 'block';
-    document.getElementById('compassPermBtn').addEventListener('click', () => {
-      DeviceOrientationEvent.requestPermission().then(s => {
-        if (s === 'granted') {
-          window.addEventListener('deviceorientationabsolute', onOrientation, true);
-          window.addEventListener('deviceorientation', onOrientation, true);
-          document.getElementById('compassPermBanner').style.display = 'none';
+function tryCompassPermission(){
+  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+    document.getElementById('compassPermBanner').style.display='block';
+    document.getElementById('compassPermBtn').addEventListener('click',()=>{
+      DeviceOrientationEvent.requestPermission().then(s=>{
+        if(s==='granted'){
+          window.addEventListener('deviceorientationabsolute',onOrientation,true);
+          window.addEventListener('deviceorientation',onOrientation,true);
+          document.getElementById('compassPermBanner').style.display='none';
         }
       });
     });
   } else {
-    window.addEventListener('deviceorientationabsolute', onOrientation, true);
-    window.addEventListener('deviceorientation', onOrientation, true);
+    window.addEventListener('deviceorientationabsolute',onOrientation,true);
+    window.addEventListener('deviceorientation',onOrientation,true);
   }
 }
-
-function onOrientation(e) {
-  let alpha = null;
-  if (e.webkitCompassHeading != null) {
-    alpha = e.webkitCompassHeading;
-  } else if (e.absolute && e.alpha != null) {
-    alpha = (360 - e.alpha) % 360;
-  } else if (e.alpha != null) {
-    alpha = (360 - e.alpha) % 360;
-  }
-  if (alpha != null) {
-    compassHeading = alpha;
-    drawCompass();
-  }
+function onOrientation(e){
+  let alpha=null;
+  if(e.webkitCompassHeading!=null) alpha=e.webkitCompassHeading;
+  else if(e.absolute&&e.alpha!=null) alpha=(360-e.alpha)%360;
+  else if(e.alpha!=null) alpha=(360-e.alpha)%360;
+  if(alpha!=null){compassHeading=alpha;drawCompass();}
 }
-
-function drawCompass() {
-  const c = document.getElementById('compassCanvas');
-  if (!c) return;
-  const ctx = c.getContext('2d');
-  const W = 200, H = 200, cx = 100, cy = 100, r = 88;
+function drawCompass(){
+  const c=document.getElementById('compassCanvas');if(!c)return;
+  const ctx=c.getContext('2d');const W=200,H=200,cx=100,cy=100,r=88;
   ctx.clearRect(0,0,W,H);
-
-  const h = compassHeading != null ? compassHeading : (heading != null ? heading : 0);
-  const hasData = compassHeading != null || heading != null;
-
-  // outer ring
-  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
-  ctx.strokeStyle = '#e0e8f0'; ctx.lineWidth = 1; ctx.stroke();
-
-  // tick marks
-  for (let i = 0; i < 360; i += 5) {
-    const a = (i - 90) * Math.PI/180;
-    const inner = i % 10 === 0 ? r-10 : r-6;
-    ctx.beginPath();
-    ctx.moveTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r);
-    ctx.lineTo(cx + Math.cos(a)*inner, cy + Math.sin(a)*inner);
-    ctx.strokeStyle = i % 90 === 0 ? '#1565c0' : '#c0ccd8';
-    ctx.lineWidth = i % 10 === 0 ? 1.5 : 0.8;
-    ctx.stroke();
+  const h=compassHeading!=null?compassHeading:(heading!=null?heading:0);
+  const hasData=compassHeading!=null||heading!=null;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle='#e0e8f0';ctx.lineWidth=1;ctx.stroke();
+  for(let i=0;i<360;i+=5){
+    const a=(i-90)*Math.PI/180,inner=i%10===0?r-10:r-6;
+    ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);ctx.lineTo(cx+Math.cos(a)*inner,cy+Math.sin(a)*inner);
+    ctx.strokeStyle=i%90===0?'#1565c0':'#c0ccd8';ctx.lineWidth=i%10===0?1.5:0.8;ctx.stroke();
   }
-
-  // cardinal labels
-  const cardinals = ['N','O','S','V'];
-  cardinals.forEach((d,i) => {
-    const a = (i*90 - 90) * Math.PI/180;
-    const tx = cx + Math.cos(a)*68, ty = cy + Math.sin(a)*68;
-    ctx.fillStyle = d === 'N' ? '#c62828' : '#1565c0';
-    ctx.font = d === 'N' ? 'bold 14px DM Sans,system-ui' : '13px DM Sans,system-ui';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(d, tx, ty);
+  ['N','O','S','V'].forEach((d,i)=>{
+    const a=(i*90-90)*Math.PI/180,tx=cx+Math.cos(a)*68,ty=cy+Math.sin(a)*68;
+    ctx.fillStyle=d==='N'?'#c62828':'#1565c0';ctx.font=d==='N'?'bold 14px DM Sans,system-ui':'13px DM Sans,system-ui';
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(d,tx,ty);
   });
-
-  // needle
-  if (hasData) {
-    const nr = (h - 90) * Math.PI/180;
-    ctx.save(); ctx.translate(cx,cy); ctx.rotate(nr);
-    // north (red)
-    ctx.beginPath(); ctx.moveTo(0,-58); ctx.lineTo(-7,0); ctx.lineTo(0,-4); ctx.lineTo(7,0); ctx.closePath();
-    ctx.fillStyle = '#c62828'; ctx.fill();
-    // south (gray)
-    ctx.beginPath(); ctx.moveTo(0,58); ctx.lineTo(-7,0); ctx.lineTo(0,4); ctx.lineTo(7,0); ctx.closePath();
-    ctx.fillStyle = '#b0bec5'; ctx.fill();
+  if(hasData){
+    const nr=(h-90)*Math.PI/180;
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(nr);
+    ctx.beginPath();ctx.moveTo(0,-58);ctx.lineTo(-7,0);ctx.lineTo(0,-4);ctx.lineTo(7,0);ctx.closePath();ctx.fillStyle='#c62828';ctx.fill();
+    ctx.beginPath();ctx.moveTo(0,58);ctx.lineTo(-7,0);ctx.lineTo(0,4);ctx.lineTo(7,0);ctx.closePath();ctx.fillStyle='#b0bec5';ctx.fill();
     ctx.restore();
   }
-
-  // center
-  ctx.beginPath(); ctx.arc(cx,cy,6,0,Math.PI*2);
-  ctx.fillStyle = '#0d2137'; ctx.fill();
-  ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2);
-  ctx.fillStyle = '#fff'; ctx.fill();
-
-  // text
-  const degText = hasData ? Math.round(((h%360)+360)%360) + '°' : '---°';
-  const dirText = hasData ? dirFromDeg(h) : 'Söker riktning…';
-  document.getElementById('compassDeg').textContent = degText;
-  document.getElementById('compassDir').textContent = dirText;
+  ctx.beginPath();ctx.arc(cx,cy,6,0,Math.PI*2);ctx.fillStyle='#0d2137';ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy,3,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  document.getElementById('compassDeg').textContent=hasData?Math.round(((h%360)+360)%360)+'°':'---°';
+  document.getElementById('compassDir').textContent=hasData?dirFromDeg(h):'Söker riktning…';
 }
 drawCompass();
 
-// ---- MAP ----
-let mapCenterLat = null, mapCenterLon = null, mapFollowBoat = true;
-const mapScales = [0.005, 0.01, 0.02, 0.05, 0.1, 0.2]; // lat/lon degrees for half-height
-let mapScaleIdx = 2;
-
-function latLonToXY(mlat, mlon, canvasW, canvasH) {
-  const cx = mapCenterLat || lat || 59.3;
-  const clon = mapCenterLon || lon || 18.0;
-  const scale = mapScales[mapScaleIdx];
-  const aspect = canvasW / canvasH;
-  const x = ((mlon - clon) / (scale * aspect) + 1) / 2 * canvasW;
-  const y = (1 - (mlat - cx) / scale) / 2 * canvasH;
-  return {x, y};
-}
-
-function drawMap() {
-  const canvas = document.getElementById('mapCanvas');
-  if (!canvas) return;
-  const dpr = window.devicePixelRatio || 1;
-  const W = canvas.offsetWidth;
-  const H = 260;
-  canvas.width = W * dpr;
-  canvas.height = H * dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-
-  if (mapFollowBoat && lat != null) {
-    mapCenterLat = lat;
-    mapCenterLon = lon;
-  }
-
-  ctx.fillStyle = '#cce4f5';
-  ctx.fillRect(0,0,W,H);
-
-  // grid
-  ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 0.5;
-  for (let i = 0; i < W; i += W/6) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,H); ctx.stroke(); }
-  for (let j = 0; j < H; j += H/5) { ctx.beginPath(); ctx.moveTo(0,j); ctx.lineTo(W,j); ctx.stroke(); }
-
-  // track
-  if (mapTrack.length > 1) {
-    ctx.beginPath();
-    mapTrack.forEach((p,i) => {
-      const {x,y} = latLonToXY(p.lat, p.lon, W, H);
-      i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-    });
-    ctx.strokeStyle = 'rgba(21,101,192,0.6)'; ctx.lineWidth = 2; ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
-  }
-
-  // waypoints
-  waypoints.forEach((wp, i) => {
-    const {x,y} = latLonToXY(wp.lat, wp.lon, W, H);
-    ctx.fillStyle = i === activeWpIndex ? '#1565c0' : '#78909c';
-    ctx.beginPath(); ctx.arc(x,y,6,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 8px DM Sans,system-ui';
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(i+1, x, y);
-  });
-
-  // boat
-  if (lat != null) {
-    const {x,y} = latLonToXY(lat, lon, W, H);
-    const bh = compassHeading != null ? compassHeading : (heading != null ? heading : 0);
-    ctx.save(); ctx.translate(x,y); ctx.rotate((bh-90)*Math.PI/180);
-    ctx.fillStyle = '#c62828';
-    ctx.beginPath(); ctx.moveTo(0,-13); ctx.lineTo(-5,6); ctx.lineTo(0,2); ctx.lineTo(5,6); ctx.closePath(); ctx.fill();
-    ctx.restore();
-    // accuracy circle
-    const scalePixPerDeg = W / (mapScales[mapScaleIdx] * 2 * (W/H));
-    const accDeg = (acc || 20) / 111320;
-    const accPx = accDeg * scalePixPerDeg;
-    ctx.beginPath(); ctx.arc(x,y,Math.min(accPx,30),0,Math.PI*2);
-    ctx.strokeStyle = 'rgba(21,101,192,0.25)'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = 'rgba(21,101,192,0.08)'; ctx.fill();
-  } else {
-    ctx.fillStyle = '#1565c0'; ctx.font = '12px DM Sans,system-ui';
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('Söker GPS-position…', W/2, H/2);
-  }
-
-  // scale bar
-  const scaleM = mapScales[mapScaleIdx] * 111320;
-  const nm = (scaleM / 1852).toFixed(1);
-  ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(10, H-28, 80, 18);
-  ctx.fillStyle = '#0d2137'; ctx.font = '10px DM Sans,system-ui';
-  ctx.textAlign='left'; ctx.textBaseline='middle';
-  ctx.fillText('≈ '+nm+' nm', 14, H-19);
-}
-drawMap();
-
-document.getElementById('btnZoomIn').addEventListener('click', () => { mapScaleIdx = Math.max(0, mapScaleIdx-1); drawMap(); });
-document.getElementById('btnZoomOut').addEventListener('click', () => { mapScaleIdx = Math.min(mapScales.length-1, mapScaleIdx+1); drawMap(); });
-document.getElementById('btnCenter').addEventListener('click', () => { mapFollowBoat = true; drawMap(); });
-
 // ---- WAYPOINTS ----
-function haversine(lat1,lon1,lat2,lon2) {
-  const R = 3440.065; // nm
-  const dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+function haversine(lat1,lon1,lat2,lon2){
+  const R=3440.065,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
-
-function bearing(lat1,lon1,lat2,lon2) {
-  const dLon=(lon2-lon1)*Math.PI/180;
-  const y=Math.sin(dLon)*Math.cos(lat2*Math.PI/180);
+function bearing(lat1,lon1,lat2,lon2){
+  const dLon=(lon2-lon1)*Math.PI/180,y=Math.sin(dLon)*Math.cos(lat2*Math.PI/180);
   const x=Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180)-Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLon);
-  return ((Math.atan2(y,x)*180/Math.PI)+360)%360;
+  return((Math.atan2(y,x)*180/Math.PI)+360)%360;
 }
-
-function saveWaypoints() { localStorage.setItem('sjonav_wps', JSON.stringify(waypoints)); }
-
-function renderWaypoints() {
-  const list = document.getElementById('wpList');
-  if (!waypoints.length) {
-    list.innerHTML = '<div style="font-size:13px;color:var(--muted);text-align:center;padding:12px">Inga waypoints ännu. Navigera till en plats och spara!</div>';
-    return;
-  }
-  list.innerHTML = waypoints.map((wp,i) => {
-    const dist = lat != null ? haversine(lat,lon,wp.lat,wp.lon).toFixed(2)+' nm' : '--';
-    const brg = lat != null ? Math.round(bearing(lat,lon,wp.lat,wp.lon))+'°' : '--';
-    return `<div class="wp-item ${i===activeWpIndex?'active-wp':''}" data-i="${i}">
+function saveWaypoints(){localStorage.setItem('sjonav_wps',JSON.stringify(waypoints));}
+function renderWaypoints(){
+  const list=document.getElementById('wpList');
+  if(!waypoints.length){list.innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:12px">Inga waypoints ännu.</div>';return;}
+  list.innerHTML=waypoints.map((wp,i)=>{
+    const dist=lat!=null?haversine(lat,lon,wp.lat,wp.lon).toFixed(2)+' nm':'--';
+    const brg=lat!=null?Math.round(bearing(lat,lon,wp.lat,wp.lon))+'°':'--';
+    return`<div class="wp-item ${i===activeWpIndex?'active-wp':''}" data-i="${i}">
       <div class="wp-num">${i+1}</div>
-      <div class="wp-info">
-        <div class="wp-name">${wp.name}</div>
-        <div class="wp-meta">${dist} · ${brg} · ${wp.lat.toFixed(4)}°N ${wp.lon.toFixed(4)}°Ö</div>
-      </div>
-      <div class="wp-del" data-del="${i}">✕</div>
-    </div>`;
+      <div class="wp-info"><div class="wp-name">${wp.name}</div><div class="wp-meta">${dist} · ${brg} · ${wp.lat.toFixed(4)}°N ${wp.lon.toFixed(4)}°Ö</div></div>
+      <div class="wp-del" data-del="${i}">✕</div></div>`;
   }).join('');
-
-  list.querySelectorAll('.wp-item').forEach(el => {
-    el.addEventListener('click', e => {
-      if (e.target.dataset.del != null) return;
-      activeWpIndex = +el.dataset.i;
-      renderWaypoints(); drawMap(); updateUI();
+  list.querySelectorAll('.wp-item').forEach(el=>{
+    el.addEventListener('click',e=>{
+      if(e.target.dataset.del!=null)return;
+      activeWpIndex=+el.dataset.i;renderWaypoints();updateMap();updateUI();
     });
   });
-  list.querySelectorAll('[data-del]').forEach(el => {
-    el.addEventListener('click', e => {
-      e.stopPropagation();
-      waypoints.splice(+el.dataset.del, 1);
-      if (activeWpIndex >= waypoints.length) activeWpIndex = Math.max(0, waypoints.length-1);
-      saveWaypoints(); renderWaypoints(); drawMap();
+  list.querySelectorAll('[data-del]').forEach(el=>{
+    el.addEventListener('click',e=>{
+      e.stopPropagation();waypoints.splice(+el.dataset.del,1);
+      if(activeWpIndex>=waypoints.length)activeWpIndex=Math.max(0,waypoints.length-1);
+      saveWaypoints();renderWaypoints();updateMap();
     });
   });
 }
 renderWaypoints();
-
-document.getElementById('wpAddBtn').addEventListener('click', () => {
-  if (lat == null) { alert('Väntar på GPS-position…'); return; }
-  const name = document.getElementById('wpNameInput').value.trim() || 'Waypoint '+(waypoints.length+1);
-  waypoints.push({ name, lat, lon, ts: Date.now() });
-  document.getElementById('wpNameInput').value = '';
-  saveWaypoints(); renderWaypoints(); drawMap();
+document.getElementById('wpAddBtn').addEventListener('click',()=>{
+  if(lat==null){alert('Väntar på GPS-position…');return;}
+  const name=document.getElementById('wpNameInput').value.trim()||'Waypoint '+(waypoints.length+1);
+  waypoints.push({name,lat,lon,ts:Date.now()});
+  document.getElementById('wpNameInput').value='';
+  saveWaypoints();renderWaypoints();updateMap();
 });
 
 // ---- WEATHER ----
-async function fetchWeather() {
-  if (lat == null) return;
-  try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,cloud_cover,visibility&wind_speed_unit=ms&timezone=auto`;
-    const r = await fetch(url);
-    const d = await r.json();
-    const c = d.current;
-
-    document.getElementById('wxCard').style.display = 'block';
-    document.getElementById('wxLoadBanner').style.display = 'none';
-    document.getElementById('wxLocation').textContent = lat.toFixed(3)+'°N '+lon.toFixed(3)+'°Ö';
-    document.getElementById('wxTemp').textContent = Math.round(c.temperature_2m)+'°';
-    document.getElementById('wxDesc').textContent = wxCodeToDesc(c.weather_code);
-    document.getElementById('wxIcon').textContent = wxCodeToIcon(c.weather_code);
-    document.getElementById('wxWind').textContent = Math.round(c.wind_speed_10m)+' m/s';
-    document.getElementById('wxWindDir').textContent = dirFromDeg(c.wind_direction_10m);
-    document.getElementById('wxHumid').textContent = Math.round(c.relative_humidity_2m)+'%';
-    document.getElementById('wxPres').textContent = Math.round(c.surface_pressure)+' hPa';
-    const vis = c.visibility != null ? (c.visibility/1000).toFixed(1)+' km' : '--';
-    document.getElementById('wxVis').textContent = vis;
-    document.getElementById('wxCloud').textContent = Math.round(c.cloud_cover)+'%';
-
-    // beaufort
-    const bft = msToBft(c.wind_speed_10m);
-    document.getElementById('wxBft').textContent = bft+' Bft';
-    document.getElementById('wxRec').textContent = bftRec(bft);
-  } catch(e) {
-    document.getElementById('wxLoadBanner').style.display = 'block';
-  }
+async function fetchWeather(){
+  if(lat==null)return;
+  try{
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,cloud_cover,visibility&wind_speed_unit=ms&timezone=auto`;
+    const r=await fetch(url);const d=await r.json();const c=d.current;
+    document.getElementById('wxCard').style.display='block';
+    document.getElementById('wxLoadBanner').style.display='none';
+    document.getElementById('wxLocation').textContent=lat.toFixed(3)+'°N '+lon.toFixed(3)+'°Ö';
+    document.getElementById('wxTemp').textContent=Math.round(c.temperature_2m)+'°';
+    document.getElementById('wxDesc').textContent=wxCodeToDesc(c.weather_code);
+    document.getElementById('wxIcon').textContent=wxCodeToIcon(c.weather_code);
+    document.getElementById('wxWind').textContent=Math.round(c.wind_speed_10m)+' m/s';
+    document.getElementById('wxWindDir').textContent=dirFromDeg(c.wind_direction_10m);
+    document.getElementById('wxHumid').textContent=Math.round(c.relative_humidity_2m)+'%';
+    document.getElementById('wxPres').textContent=Math.round(c.surface_pressure)+' hPa';
+    document.getElementById('wxVis').textContent=c.visibility!=null?(c.visibility/1000).toFixed(1)+' km':'--';
+    document.getElementById('wxCloud').textContent=Math.round(c.cloud_cover)+'%';
+    const bft=msToBft(c.wind_speed_10m);
+    document.getElementById('wxBft').textContent=bft+' Bft';
+    document.getElementById('wxRec').textContent=bftRec(bft);
+  }catch(e){document.getElementById('wxLoadBanner').style.display='block';}
 }
+document.getElementById('wxRefreshBtn').addEventListener('click',fetchWeather);
+function msToBft(ms){const t=[0.3,1.6,3.4,5.5,8.0,10.8,13.9,17.2,20.8,24.5,28.5,32.7];for(let i=0;i<t.length;i++)if(ms<t[i])return i;return 12;}
+function bftRec(b){if(b<=2)return'✅ Lugnt – utmärkt för alla båtar';if(b<=3)return'✅ Lätt bris – bra segling';if(b<=4)return'✅ God bris – aktivt seglingsväder';if(b<=5)return'⚠ Frisk bris – kräver erfarenhet';if(b<=6)return'⚠ Stark bris – var försiktig';if(b<=7)return'🚫 Styv kuling – undvik resa';return'🚫 Storm – stanna i hamn';}
+function wxCodeToDesc(c){if(c===0)return'Klart';if(c<=2)return'Delvis molnigt';if(c===3)return'Mulet';if(c<=49)return'Dimma';if(c<=59)return'Duggregn';if(c<=69)return'Regn';if(c<=79)return'Snö';if(c<=84)return'Regnskurar';if(c<=94)return'Åskväder';return'Svårt oväder';}
+function wxCodeToIcon(c){if(c===0)return'☀';if(c<=2)return'⛅';if(c===3)return'☁';if(c<=49)return'🌫';if(c<=59)return'🌦';if(c<=69)return'🌧';if(c<=79)return'❄';if(c<=84)return'🌦';if(c<=94)return'⛈';return'🌀';}
 
-document.getElementById('wxRefreshBtn').addEventListener('click', fetchWeather);
 
-function msToBft(ms) {
-  const t=[0.3,1.6,3.4,5.5,8.0,10.8,13.9,17.2,20.8,24.5,28.5,32.7];
-  for(let i=0;i<t.length;i++) if(ms<t[i]) return i;
-  return 12;
-}
-function bftRec(b) {
-  if(b<=2) return '✅ Lugnt – utmärkt för alla båtar';
-  if(b<=3) return '✅ Lätt bris – bra segling';
-  if(b<=4) return '✅ God bris – aktivt seglingsväder';
-  if(b<=5) return '⚠ Frisk bris – kräver erfarenhet';
-  if(b<=6) return '⚠ Stark bris – var försiktig';
-  if(b<=7) return '🚫 Styv kuling – undvik resa';
-  return '🚫 Storm – stanna i hamn';
-}
-function wxCodeToDesc(c) {
-  if(c===0) return 'Klart';
-  if(c<=2) return 'Delvis molnigt';
-  if(c===3) return 'Mulet';
-  if(c<=49) return 'Dimma';
-  if(c<=59) return 'Duggregn';
-  if(c<=69) return 'Regn';
-  if(c<=79) return 'Snö';
-  if(c<=84) return 'Regnskurar';
-  if(c<=94) return 'Åskväder';
-  return 'Svårt oväder';
-}
-function wxCodeToIcon(c) {
-  if(c===0) return '☀';
-  if(c<=2) return '⛅';
-  if(c===3) return '☁';
-  if(c<=49) return '🌫';
-  if(c<=59) return '🌦';
-  if(c<=69) return '🌧';
-  if(c<=79) return '❄';
-  if(c<=84) return '🌦';
-  if(c<=94) return '⛈';
-  return '🌀';
-}
-
-// ---- SOS ----
-const sosBtn = document.getElementById('sosBtn');
-sosBtn.addEventListener('pointerdown', () => {
-  sosTimer = setTimeout(() => {
-    const posStr = lat != null ? lat.toFixed(5)+'°N '+lon.toFixed(5)+'°Ö' : 'okänd position';
-    if (confirm('🆘 SKICKA SOS?\nDin position: '+posStr+'\n\nI en riktig nödsituation: ring 112 eller VHF kanal 16.')) {
-      alert('SOS aktiverat!\nPosition: '+posStr+'\nRing 112 eller använd VHF kanal 16.');
-    }
-  }, 3000);
-});
-sosBtn.addEventListener('pointerup', () => clearTimeout(sosTimer));
-sosBtn.addEventListener('pointercancel', () => clearTimeout(sosTimer));
 
 // ---- START ----
+initMap();
 startGPS();
 tryCompassPermission();
-window.addEventListener('resize', drawMap);
-// Redraw map periodically
-setInterval(() => { renderWaypoints(); drawMap(); }, 3000);
+window.addEventListener('resize',()=>map&&map.invalidateSize());
+setInterval(()=>{renderWaypoints();updateMap();checkWarnings();},3000);
 </script>
 </body>
 </html>
