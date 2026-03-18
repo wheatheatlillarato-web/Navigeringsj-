@@ -4,519 +4,304 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#0d2137">
 <title>SjöNav</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  :root {
-    --bg: #f2f6fb; --surface: #ffffff; --surface2: #e8f0f8;
-    --navy: #0d2137; --accent: #1565c0; --accent2: #2196f3;
-    --text: #0d2137; --muted: #5a7a9a; --border: rgba(13,33,55,0.1);
-    --danger: #c62828; --success: #1b6e3f; --warn: #7a4d00; --warn-bg: #fff3cd;
-    --radius: 14px; --radius-sm: 9px;
-    --font: 'DM Sans', system-ui, sans-serif; --mono: 'DM Mono', monospace;
-  }
-  html, body { height: 100%; overflow: hidden; background: var(--bg); font-family: var(--font); color: var(--text); }
-  #app { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
-
-  .topbar {
-    background: var(--navy); color: #fff;
-    padding: max(12px, env(safe-area-inset-top)) 16px 10px;
-    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
-  }
-  .topbar-logo { font-size: 18px; font-weight: 500; letter-spacing: -0.5px; }
-  .topbar-logo span { color: #64b5f6; }
-  .gps-pill { display: flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.1); border-radius: 20px; padding: 4px 10px; font-size: 11px; color: rgba(255,255,255,0.85); }
-  .gps-dot { width: 7px; height: 7px; border-radius: 50%; background: #4caf50; flex-shrink: 0; }
-  .gps-dot.searching { background: #ff9800; animation: blink 1s infinite; }
-  .gps-dot.error { background: #f44336; }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-
-  .tabs { display: flex; background: var(--navy); padding: 0 8px 10px; gap: 4px; flex-shrink: 0; }
-  .tab { flex: 1; padding: 7px 4px; text-align: center; font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.45); border-radius: 8px; cursor: pointer; transition: all 0.15s; }
-  .tab.active { background: rgba(255,255,255,0.12); color: #fff; }
-
-  .content { flex: 1; overflow-y: auto; padding: 12px 12px max(12px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
-  .content::-webkit-scrollbar { display: none; }
-  .page { display: none; flex-direction: column; gap: 10px; flex: 1; }
-  .page.active { display: flex; }
-  .page:not(#page-karta).active { overflow-y: auto; padding: 12px 12px max(12px, env(safe-area-inset-bottom)); gap: 10px; }
-
-  .card { background: var(--surface); border-radius: var(--radius); border: 0.5px solid var(--border); padding: 14px; }
-  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-  .card-title { font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
-
-  .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-  .stat { background: var(--surface); border-radius: var(--radius-sm); border: 0.5px solid var(--border); padding: 12px 8px; text-align: center; }
-  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
-  .stat-val { font-size: 24px; font-weight: 300; color: var(--text); font-family: var(--mono); line-height: 1; }
-  .stat-unit { font-size: 10px; color: var(--muted); margin-top: 2px; }
-
-  /* KARTA HELSKÄRM */
-  #page-karta { padding: 0; gap: 0; position: relative; height: 100%; }
-  #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
-  .map-stats-overlay {
-    position: absolute; top: 10px; left: 10px; right: 10px; z-index: 10;
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; pointer-events: none;
-  }
-  .map-stat {
-    background: rgba(255,255,255,0.92); border-radius: 10px;
-    border: 0.5px solid rgba(13,33,55,0.12); padding: 8px 6px; text-align: center;
-    backdrop-filter: blur(4px);
-  }
-  .map-stat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
-  .map-stat-val { font-size: 20px; font-weight: 300; color: var(--text); font-family: var(--mono); line-height: 1; }
-  .map-stat-unit { font-size: 9px; color: var(--muted); margin-top: 1px; }
-  .map-btns-overlay {
-    position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); right: 10px; z-index: 10;
-    display: flex; flex-direction: column; gap: 6px;
-  }
-  .map-fab {
-    width: 40px; height: 40px; border-radius: 10px;
-    background: rgba(255,255,255,0.92); border: 0.5px solid rgba(13,33,55,0.12);
-    font-size: 16px; color: var(--accent); cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    backdrop-filter: blur(4px); font-family: var(--font); font-weight: 500;
-  }
-  .map-fab.active { background: var(--accent); color: #fff; }
-  .map-pos-overlay {
-    position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); left: 10px; z-index: 10;
-    background: rgba(255,255,255,0.88); border-radius: 8px; border: 0.5px solid rgba(13,33,55,0.12);
-    padding: 6px 10px; backdrop-filter: blur(4px);
-  }
-  .map-pos-text { font-size: 11px; font-family: var(--mono); color: var(--text); line-height: 1.5; }
-  .map-pos-acc { font-size: 10px; color: var(--muted); }
-  .leaflet-control-zoom { display: none; }
-  .leaflet-control-attribution { font-size: 9px !important; }
-
-  .compass-wrap { display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 8px 0 4px; }
-  #compassCanvas { width: 160px; height: 160px; }
-  .compass-heading { font-size: 28px; font-weight: 300; font-family: var(--mono); color: var(--text); text-align: center; margin-top: 6px; }
-  .compass-dir { font-size: 13px; color: var(--muted); text-align: center; }
-
-  .coord-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 0.5px solid var(--border); }
-  .coord-row:last-child { border-bottom: none; }
-  .coord-label { font-size: 12px; color: var(--muted); }
-  .coord-val { font-size: 13px; font-family: var(--mono); font-weight: 500; color: var(--text); }
-
-  .wp-add { display: flex; gap: 6px; margin-bottom: 8px; }
-  .wp-add input { flex: 1; padding: 9px 12px; border-radius: 8px; border: 0.5px solid var(--border); background: var(--surface2); font-size: 13px; font-family: var(--font); color: var(--text); outline: none; }
-  .wp-add input:focus { border-color: var(--accent2); }
-  .wp-add button { padding: 9px 14px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: var(--font); white-space: nowrap; }
-  .wp-list { display: flex; flex-direction: column; gap: 6px; }
-  .wp-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface2); border-radius: 10px; cursor: pointer; }
-  .wp-item.active-wp { background: #e3f0fc; border: 0.5px solid #90caf9; }
-  .wp-num { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 500; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .wp-info { flex: 1; }
-  .wp-name { font-size: 13px; font-weight: 500; }
-  .wp-meta { font-size: 11px; color: var(--muted); margin-top: 1px; }
-  .wp-del { font-size: 16px; color: var(--muted); padding: 4px; cursor: pointer; }
-
-  .wx-main { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
-  .wx-icon { font-size: 44px; line-height: 1; }
-  .wx-temp { font-size: 42px; font-weight: 300; font-family: var(--mono); }
-  .wx-desc { font-size: 13px; color: var(--muted); margin-top: 2px; }
-  .wx-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-  .wx-cell { background: var(--surface2); border-radius: 8px; padding: 10px; text-align: center; }
-  .wx-cell-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
-  .wx-cell-val { font-size: 15px; font-weight: 500; margin-top: 3px; }
-
-
-  .perm-banner { background: #e3f2fd; border: 0.5px solid #90caf9; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #0d47a1; }
-  .perm-btn { display: block; margin-top: 8px; padding: 8px 14px; background: var(--accent); color: #fff; border: none; border-radius: 7px; font-size: 13px; cursor: pointer; font-family: var(--font); }
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{--bg:#f2f6fb;--surface:#fff;--surface2:#e8f0f8;--navy:#0d2137;--accent:#1565c0;--text:#0d2137;--muted:#5a7a9a;--border:rgba(13,33,55,0.1);--radius:14px;--radius-sm:9px;--font:'DM Sans',system-ui,sans-serif;--mono:'DM Mono',monospace}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:var(--font);color:var(--text)}
+#app{height:100dvh;display:flex;flex-direction:column}
+.topbar{background:var(--navy);color:#fff;padding:max(12px,env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.logo{font-size:18px;font-weight:500}.logo span{color:#64b5f6}
+.gps-pill{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.1);border-radius:20px;padding:4px 10px;font-size:11px}
+.gps-dot{width:7px;height:7px;border-radius:50%;background:#ff9800}
+.gps-dot.ok{background:#4caf50}.gps-dot.err{background:#f44336;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+.tabs{display:flex;background:var(--navy);padding:0 8px 10px;gap:4px;flex-shrink:0}
+.tab{flex:1;padding:7px 4px;text-align:center;font-size:11px;font-weight:500;color:rgba(255,255,255,0.45);border-radius:8px;cursor:pointer}
+.tab.on{background:rgba(255,255,255,0.12);color:#fff}
+.pages{flex:1;overflow:hidden;position:relative}
+.page{position:absolute;inset:0;display:none;flex-direction:column;overflow-y:auto}
+.page.on{display:flex}
+.page-pad{padding:12px;display:flex;flex-direction:column;gap:10px;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.card{background:var(--surface);border-radius:var(--radius);border:0.5px solid var(--border);padding:14px}
+.card-title{font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:12px}
+.card-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:0.5px solid var(--border)}
+.card-row:last-child{border-bottom:none}
+.card-label{font-size:12px;color:var(--muted)}.card-val{font-size:13px;font-family:var(--mono);font-weight:500}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.stat{background:var(--surface);border-radius:var(--radius-sm);border:0.5px solid var(--border);padding:12px 8px;text-align:center}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px}
+.stat-val{font-size:22px;font-weight:300;font-family:var(--mono);line-height:1}
+.stat-unit{font-size:10px;color:var(--muted);margin-top:2px}
+#page-map{overflow:hidden}
+#map{flex:1;width:100%;min-height:0}
+.ot{position:absolute;top:10px;left:10px;right:10px;z-index:1000;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;pointer-events:none}
+.ms{background:rgba(255,255,255,0.92);border-radius:10px;border:0.5px solid rgba(0,0,0,0.08);padding:8px 6px;text-align:center}
+.ms-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px}
+.ms-v{font-size:20px;font-weight:300;font-family:var(--mono);line-height:1.2}
+.ms-u{font-size:9px;color:var(--muted)}
+.obl{position:absolute;bottom:max(14px,env(safe-area-inset-bottom));left:10px;z-index:1000;background:rgba(255,255,255,0.92);border-radius:8px;padding:6px 10px;font-size:11px;font-family:var(--mono);line-height:1.6}
+.obr{position:absolute;bottom:max(14px,env(safe-area-inset-bottom));right:10px;z-index:1000;display:flex;flex-direction:column;gap:6px}
+.fab{width:42px;height:42px;border-radius:11px;background:rgba(255,255,255,0.92);border:0.5px solid rgba(0,0,0,0.1);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.fab.on{background:var(--accent);color:#fff}
+.leaflet-control-zoom,.leaflet-control-attribution{display:none!important}
+.compass-wrap{display:flex;flex-direction:column;align-items:center;padding:8px 0}
+.compass-deg{font-size:30px;font-weight:300;font-family:var(--mono);margin-top:6px}
+.compass-dir{font-size:13px;color:var(--muted)}
+.wp-add{display:flex;gap:6px;margin-bottom:8px}
+.wp-add input{flex:1;padding:9px 12px;border-radius:8px;border:0.5px solid var(--border);background:var(--surface2);font-size:13px;font-family:var(--font);color:var(--text);outline:none}
+.wp-add button{padding:9px 14px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font)}
+.wp-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:10px;margin-bottom:6px;cursor:pointer}
+.wp-item.act{background:#e3f0fc;border:0.5px solid #90caf9}
+.wp-num{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.wp-info{flex:1}.wp-name{font-size:13px;font-weight:500}.wp-meta{font-size:11px;color:var(--muted);margin-top:1px}
+.wp-del{font-size:16px;color:var(--muted);padding:4px}
+.wx-main{display:flex;align-items:center;gap:16px;margin-bottom:12px}
+.wx-icon{font-size:44px}.wx-temp{font-size:42px;font-weight:300;font-family:var(--mono)}.wx-desc{font-size:13px;color:var(--muted)}
+.wx-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.wx-cell{background:var(--surface2);border-radius:8px;padding:10px;text-align:center}
+.wx-cell-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px}
+.wx-cell-val{font-size:15px;font-weight:500;margin-top:3px}
+.banner{background:#e3f2fd;border:0.5px solid #90caf9;border-radius:10px;padding:12px 14px;font-size:13px;color:#0d47a1}
+.banner button{display:block;margin-top:8px;padding:8px 14px;background:var(--accent);color:#fff;border:none;border-radius:7px;font-size:13px;cursor:pointer;font-family:var(--font)}
 </style>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 <div id="app">
   <div class="topbar">
-    <div class="topbar-logo">Sjö<span>Nav</span></div>
-    <div class="gps-pill">
-      <div class="gps-dot searching" id="gpsDot"></div>
-      <span id="gpsStatus">Söker GPS…</span>
-    </div>
+    <div class="logo">Sjö<span>Nav</span></div>
+    <div class="gps-pill"><div class="gps-dot" id="gpsDot"></div><span id="gpsText">Söker GPS…</span></div>
   </div>
   <div class="tabs">
-    <div class="tab active" data-tab="karta">🗺 Karta</div>
-    <div class="tab" data-tab="kompass">🧭 Kompass</div>
-    <div class="tab" data-tab="waypoints">📍 Rutt</div>
-
-    <div class="tab" data-tab="vader">🌤 Väder</div>
+    <div class="tab on" data-p="map">🗺 Karta</div>
+    <div class="tab" data-p="compass">🧭 Kompass</div>
+    <div class="tab" data-p="route">📍 Rutt</div>
+    <div class="tab" data-p="weather">🌤 Väder</div>
   </div>
-
-  <div class="content">
-
-    <!-- KARTA -->
-    <div class="page active" id="page-karta">
+  <div class="pages">
+    <div class="page on" id="page-map">
       <div id="map"></div>
-      <div class="map-stats-overlay">
-        <div class="map-stat"><div class="map-stat-label">Fart</div><div class="map-stat-val" id="speedVal">--</div><div class="map-stat-unit">knop</div></div>
-        <div class="map-stat"><div class="map-stat-label">Kurs</div><div class="map-stat-val" id="cogVal">--</div><div class="map-stat-unit">grader</div></div>
-        <div class="map-stat"><div class="map-stat-label">Höjd</div><div class="map-stat-val" id="altVal">--</div><div class="map-stat-unit">meter</div></div>
+      <div class="ot">
+        <div class="ms"><div class="ms-l">Fart</div><div class="ms-v" id="sSpeed">--</div><div class="ms-u">knop</div></div>
+        <div class="ms"><div class="ms-l">Kurs</div><div class="ms-v" id="sCog">--</div><div class="ms-u">grader</div></div>
+        <div class="ms"><div class="ms-l">Höjd</div><div class="ms-v" id="sAlt">--</div><div class="ms-u">meter</div></div>
       </div>
-      <div class="map-pos-overlay">
-        <div class="map-pos-text" id="latVal">--</div>
-        <div class="map-pos-text" id="lonVal">--</div>
-        <div class="map-pos-acc" id="accVal">--</div>
-      </div>
-      <div class="map-btns-overlay">
-        <div class="map-fab active" id="btnFollow" title="Följ båt">🔒</div>
-        <div class="map-fab" id="btnNautical" title="Sjökort">⚓</div>
-        <div class="map-fab" id="btnCenter" title="Centrera">⊙</div>
+      <div class="obl" id="sPos">Söker position…</div>
+      <div class="obr">
+        <div class="fab on" id="btnFollow">🔒</div>
+        <div class="fab" id="btnNautical">⚓</div>
+        <div class="fab" id="btnCenter">⊙</div>
       </div>
     </div>
-
-    <!-- KOMPASS -->
-    <div class="page" id="page-kompass">
-      <div class="card">
-        <div class="card-header"><div class="card-title">Kompass</div></div>
-        <div class="compass-wrap">
-          <canvas id="compassCanvas" width="200" height="200"></canvas>
-          <div class="compass-heading" id="compassDeg">---°</div>
-          <div class="compass-dir" id="compassDir">Söker riktning…</div>
+    <div class="page" id="page-compass">
+      <div class="page-pad">
+        <div class="card">
+          <div class="compass-wrap">
+            <canvas id="compass" width="200" height="200"></canvas>
+            <div class="compass-deg" id="cDeg">---°</div>
+            <div class="compass-dir" id="cDir">Söker riktning…</div>
+          </div>
         </div>
-      </div>
-      <div class="stat-grid">
-        <div class="stat"><div class="stat-label">Fart</div><div class="stat-val" id="speedVal2">--</div><div class="stat-unit">knop</div></div>
-        <div class="stat"><div class="stat-label">Kurs</div><div class="stat-val" id="cogVal2">--</div><div class="stat-unit">°</div></div>
-        <div class="stat"><div class="stat-label">Nästa WP</div><div class="stat-val" id="wpDistVal">--</div><div class="stat-unit">nm</div></div>
-      </div>
-      <div id="compassPermBanner" class="card perm-banner" style="display:none">
-        Din enhet stöder kompass. Tryck för att aktivera rörelsesensorn.
-        <button class="perm-btn" id="compassPermBtn">Aktivera kompass</button>
+        <div class="stat-grid">
+          <div class="stat"><div class="stat-label">Fart</div><div class="stat-val" id="cSpeed">--</div><div class="stat-unit">knop</div></div>
+          <div class="stat"><div class="stat-label">Kurs</div><div class="stat-val" id="cCog">--</div><div class="stat-unit">°</div></div>
+          <div class="stat"><div class="stat-label">Nästa WP</div><div class="stat-val" id="cWp">--</div><div class="stat-unit">nm</div></div>
+        </div>
+        <div class="banner" id="compassBanner" style="display:none">Tryck för att aktivera kompasssensorn.<button id="compassBtn">Aktivera kompass</button></div>
       </div>
     </div>
-
-    <!-- WAYPOINTS -->
-    <div class="page" id="page-waypoints">
-      <div class="card">
-        <div class="card-header"><div class="card-title">Lägg till waypoint</div></div>
-        <div class="wp-add">
-          <input type="text" id="wpNameInput" placeholder="Namn (t.ex. Sandhamn)" maxlength="30">
-          <button id="wpAddBtn">+ Spara GPS</button>
+    <div class="page" id="page-route">
+      <div class="page-pad">
+        <div class="card">
+          <div class="card-title">Lägg till waypoint</div>
+          <div class="wp-add"><input type="text" id="wpInput" placeholder="Namn (t.ex. Sandhamn)" maxlength="30"><button id="wpAdd">+ Spara</button></div>
+          <div style="font-size:11px;color:var(--muted)">Sparar din nuvarande GPS-position.</div>
         </div>
-        <div style="font-size:11px;color:var(--muted)">Sparar din nuvarande GPS-position som waypoint.</div>
+        <div class="card"><div class="card-title">Waypoints</div><div id="wpList"><div style="font-size:13px;color:var(--muted);text-align:center;padding:8px">Inga waypoints ännu.</div></div></div>
       </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Sparade waypoints</div></div>
-        <div class="wp-list" id="wpList">
-          <div style="font-size:13px;color:var(--muted);text-align:center;padding:12px">Inga waypoints ännu.</div>
+    </div>
+    <div class="page" id="page-weather">
+      <div class="page-pad">
+        <div class="banner" id="wxBanner">Hämtar väder för din position…<button id="wxRefresh">Uppdatera</button></div>
+        <div class="card" id="wxCard" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div class="card-title" style="margin:0">Väder nu</div><div style="font-size:11px;color:var(--muted)" id="wxLoc">--</div></div>
+          <div class="wx-main"><div class="wx-icon" id="wxIcon">⛅</div><div><div class="wx-temp" id="wxTemp">--°</div><div class="wx-desc" id="wxDesc">--</div></div></div>
+          <div class="wx-grid">
+            <div class="wx-cell"><div class="wx-cell-label">Vind</div><div class="wx-cell-val" id="wxWind">--</div></div>
+            <div class="wx-cell"><div class="wx-cell-label">Vindrikt.</div><div class="wx-cell-val" id="wxWDir">--</div></div>
+            <div class="wx-cell"><div class="wx-cell-label">Luftfukt.</div><div class="wx-cell-val" id="wxHum">--</div></div>
+            <div class="wx-cell"><div class="wx-cell-label">Lufttryck</div><div class="wx-cell-val" id="wxPres">--</div></div>
+            <div class="wx-cell"><div class="wx-cell-label">Sikt</div><div class="wx-cell-val" id="wxVis">--</div></div>
+            <div class="wx-cell"><div class="wx-cell-label">Molnighet</div><div class="wx-cell-val" id="wxCloud">--</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Sjösäkerhet</div>
+          <div class="card-row"><div class="card-label">Beaufort</div><div class="card-val" id="wxBft">--</div></div>
+          <div class="card-row"><div class="card-label">Råd</div><div class="card-val" id="wxRec" style="font-family:var(--font);font-size:12px;max-width:200px;text-align:right">--</div></div>
         </div>
       </div>
     </div>
-
-    <!-- VÄDER -->
-    <div class="page" id="page-vader">
-      <div id="wxLoadBanner" class="card perm-banner">
-        Hämtar väderdata för din position…
-        <button class="perm-btn" id="wxRefreshBtn">Uppdatera väder</button>
-      </div>
-      <div class="card" id="wxCard" style="display:none">
-        <div class="card-header"><div class="card-title">Väder nu</div><div style="font-size:11px;color:var(--muted)" id="wxLocation">--</div></div>
-        <div class="wx-main">
-          <div class="wx-icon" id="wxIcon">⛅</div>
-          <div><div class="wx-temp" id="wxTemp">--°</div><div class="wx-desc" id="wxDesc">Laddar…</div></div>
-        </div>
-        <div class="wx-grid">
-          <div class="wx-cell"><div class="wx-cell-label">Vind</div><div class="wx-cell-val" id="wxWind">--</div></div>
-          <div class="wx-cell"><div class="wx-cell-label">Vindrikt.</div><div class="wx-cell-val" id="wxWindDir">--</div></div>
-          <div class="wx-cell"><div class="wx-cell-label">Luftfukt.</div><div class="wx-cell-val" id="wxHumid">--</div></div>
-          <div class="wx-cell"><div class="wx-cell-label">Lufttryck</div><div class="wx-cell-val" id="wxPres">--</div></div>
-          <div class="wx-cell"><div class="wx-cell-label">Sikt</div><div class="wx-cell-val" id="wxVis">--</div></div>
-          <div class="wx-cell"><div class="wx-cell-label">Molnighet</div><div class="wx-cell-val" id="wxCloud">--</div></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Sjösäkerhet</div></div>
-        <div class="coord-row"><div class="coord-label">Beaufortskala</div><div class="coord-val" id="wxBft">--</div></div>
-        <div class="coord-row"><div class="coord-label">Rekommendation</div><div class="coord-val" id="wxRec" style="font-family:var(--font);font-size:12px;max-width:180px;text-align:right">--</div></div>
-      </div>
-
-    </div>
-
   </div>
 </div>
-
 <script>
-// ---- STATE ----
-let lat=null,lon=null,acc=null,alt=null,speed=null,heading=null,compassHeading=null;
-let watchId=null, mapTrack=[], waypoints=JSON.parse(localStorage.getItem('sjonav_wps')||'[]');
-let activeWpIndex=0, sosTimer=null;
-let map=null, boatMarker=null, trackLine=null, wpMarkers=[];
-let mapFollowBoat=true, nauticalLayer=null, osmLayer=null, nauticalOn=false;
-let anchorPos=null, targetCourse=null;
+var lat=null,lon=null,acc=null,alt=null,spd=null,hdg=null,cHdg=null;
+var track=[],wps=JSON.parse(localStorage.getItem('sjonav_wps')||'[]'),activeWp=0;
+var map,boatMark,trackLine,wpMarks=[],nautOn=false,followBoat=true,nautLayer;
+var wxDone=false;
+var DIRS=['N','NNO','NO','ONO','O','OSO','SO','SSO','S','SSV','SV','VSV','V','VNV','NV','NNV'];
+function dir(d){return DIRS[Math.round(((d%360)+360)%360/22.5)%16];}
 
-// ---- WARNING SETTINGS (depth only) ----
-let warnings = JSON.parse(localStorage.getItem('sjonav_warn')||'{}');
-if(!warnings.depth) warnings.depth={on:false,val:3};
-function saveWarnings(){localStorage.setItem('sjonav_warn',JSON.stringify(warnings));}
-
-// ---- TABS ----
-document.querySelectorAll('.tab').forEach(t=>{
-  t.addEventListener('click',()=>{
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-    document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
-    t.classList.add('active');
-    document.getElementById('page-'+t.dataset.tab).classList.add('active');
-    if(t.dataset.tab==='karta') setTimeout(()=>map&&map.invalidateSize(),100);
+document.querySelectorAll('.tab').forEach(function(t){
+  t.addEventListener('click',function(){
+    document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('on');});
+    document.querySelectorAll('.page').forEach(function(x){x.classList.remove('on');});
+    t.classList.add('on');
+    document.getElementById('page-'+t.dataset.p).classList.add('on');
+    if(t.dataset.p==='map'&&map){setTimeout(function(){map.invalidateSize();},100);}
   });
 });
 
-// ---- GPS ----
-function startGPS(){
-  if(!navigator.geolocation){setGpsStatus('error','GPS saknas');return;}
-  setGpsStatus('searching','Söker GPS…');
-  watchId=navigator.geolocation.watchPosition(onPos,onPosErr,{enableHighAccuracy:true,maximumAge:2000,timeout:15000});
-}
-function onPos(pos){
-  lat=pos.coords.latitude; lon=pos.coords.longitude; acc=pos.coords.accuracy; alt=pos.coords.altitude;
-  if(pos.coords.speed!=null) speed=pos.coords.speed*1.94384;
-  if(pos.coords.heading!=null&&pos.coords.heading===pos.coords.heading) heading=pos.coords.heading;
-  setGpsStatus('ok','GPS aktiv');
-  mapTrack.push({lat,lon});
-  if(mapTrack.length>300) mapTrack.shift();
-  updateUI(); updateMap(); checkWarnings();
-  if(mapTrack.length===1) fetchWeather();
-}
-function onPosErr(e){setGpsStatus('error','GPS: '+(e.code===1?'Nekad':e.code===2?'Ej tillgänglig':'Timeout'));}
-function setGpsStatus(state,text){
-  document.getElementById('gpsDot').className='gps-dot '+(state==='ok'?'':state);
-  document.getElementById('gpsStatus').textContent=text;
+if(navigator.geolocation){
+  navigator.geolocation.watchPosition(function(p){
+    lat=p.coords.latitude;lon=p.coords.longitude;acc=p.coords.accuracy;alt=p.coords.altitude;
+    if(p.coords.speed!=null)spd=p.coords.speed*1.94384;
+    if(p.coords.heading!=null&&!isNaN(p.coords.heading))hdg=p.coords.heading;
+    document.getElementById('gpsDot').className='gps-dot ok';
+    document.getElementById('gpsText').textContent='GPS aktiv';
+    track.push([lat,lon]);if(track.length>300)track.shift();
+    updateStats();if(map)updateMap();drawCompass();
+    if(!wxDone){wxDone=true;fetchWeather();}
+  },function(e){
+    document.getElementById('gpsDot').className='gps-dot err';
+    document.getElementById('gpsText').textContent=e.code===1?'GPS nekad':'GPS fel';
+  },{enableHighAccuracy:true,maximumAge:2000,timeout:15000});
 }
 
-// ---- WARNINGS CHECK ----
-const activeAlerts={};
-function checkWarnings(){
-  // Depth warning is handled externally via NMEA - placeholder only
+function updateStats(){
+  var s=spd!=null?spd.toFixed(1):'--';
+  var c=hdg!=null?Math.round(((hdg%360)+360)%360):'--';
+  document.getElementById('sSpeed').textContent=s;
+  document.getElementById('sCog').textContent=c;
+  document.getElementById('sAlt').textContent=alt!=null?Math.round(alt):'--';
+  document.getElementById('cSpeed').textContent=s;
+  document.getElementById('cCog').textContent=c;
+  if(lat!=null&&wps.length>0){var wp=wps[activeWp]||wps[0];document.getElementById('cWp').textContent=hav(lat,lon,wp.lat,wp.lon).toFixed(2);}
+  if(lat!=null){document.getElementById('sPos').innerHTML=lat.toFixed(5)+'° N<br>'+lon.toFixed(5)+'° Ö<br><span style="font-size:10px;color:var(--muted)">± '+Math.round(acc||0)+' m</span>';}
 }
 
-// ---- DIRS ----
-const dirs=['N','NNO','NO','ONO','O','OSO','SO','SSO','S','SSV','SV','VSV','V','VNV','NV','NNV'];
-function dirFromDeg(d){return dirs[Math.round(((d%360)+360)%360/22.5)%16];}
-
-// ---- UI UPDATE ----
-function updateUI(){
-  const spd=speed!=null?speed.toFixed(1):'--';
-  const cog=heading!=null?Math.round(((heading%360)+360)%360):'--';
-  document.getElementById('speedVal').textContent=spd;
-  document.getElementById('cogVal').textContent=cog;
-  document.getElementById('altVal').textContent=alt!=null?Math.round(alt):'--';
-  document.getElementById('latVal').textContent=lat!=null?lat.toFixed(5)+'° N':'--';
-  document.getElementById('lonVal').textContent=lon!=null?lon.toFixed(5)+'° Ö':'--';
-  document.getElementById('accVal').textContent=acc!=null?'± '+Math.round(acc)+' m':'--';
-  document.getElementById('speedVal2').textContent=spd;
-  document.getElementById('cogVal2').textContent=cog;
-  if(lat!=null&&waypoints.length>0){
-    const wp=waypoints[activeWpIndex]||waypoints[0];
-    document.getElementById('wpDistVal').textContent=haversine(lat,lon,wp.lat,wp.lon).toFixed(2);
-  } else document.getElementById('wpDistVal').textContent='--';
-  drawCompass();
-}
-
-// ---- MAP ----
 function initMap(){
-  map=L.map('map',{zoomControl:false,attributionControl:true,touchZoom:true,tap:false}).setView([59.3,18.0],13);
-
-  osmLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    maxZoom:19, attribution:'© OpenStreetMap'
-  }).addTo(map);
-
-  nauticalLayer=L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{
-    maxZoom:18, opacity:1, attribution:'© OpenSeaMap'
-  });
-
-  const boatSvg=`<svg width="28" height="28" viewBox="0 0 28 28" style="transform-origin:center"><polygon points="14,2 9,22 14,17 19,22" fill="#c62828" stroke="#fff" stroke-width="1"/></svg>`;
-  const boatIcon=L.divIcon({html:boatSvg,iconSize:[28,28],iconAnchor:[14,14],className:'boat-icon'});
-  boatMarker=L.marker([59.3,18.0],{icon:boatIcon,zIndexOffset:1000}).addTo(map);
+  map=L.map('map',{zoomControl:false,attributionControl:false,touchZoom:true,tap:false,dragging:true});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+  nautLayer=L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{maxZoom:18});
+  map.setView([59.32,18.07],13);
+  var svg='<svg width="28" height="28" viewBox="0 0 28 28" style="transform-origin:center"><polygon points="14,2 9,22 14,17 19,22" fill="#c62828" stroke="#fff" stroke-width="1.5"/></svg>';
+  boatMark=L.marker([59.32,18.07],{icon:L.divIcon({html:svg,iconSize:[28,28],iconAnchor:[14,14],className:''}),zIndexOffset:1000}).addTo(map);
   trackLine=L.polyline([],{color:'#1565c0',weight:2,opacity:0.5,dashArray:'5,4'}).addTo(map);
-}
-
-let anchorCircle=null;
-function updateMap(){
-  if(!map||lat==null) return;
-  boatMarker.setLatLng([lat,lon]);
-  trackLine.setLatLngs(mapTrack.map(p=>[p.lat,p.lon]));
-  if(mapFollowBoat) map.panTo([lat,lon],{animate:true,duration:0.5});
-
-  const h=compassHeading!=null?compassHeading:(heading!=null?heading:0);
-  const el=boatMarker.getElement();
-  if(el){const svg=el.querySelector('svg');if(svg)svg.style.transform=`rotate(${h}deg)`;}
-
-  wpMarkers.forEach(m=>map.removeLayer(m));
-  wpMarkers=[];
-  waypoints.forEach((wp,i)=>{
-    const icon=L.divIcon({
-      html:`<div style="width:24px;height:24px;background:${i===activeWpIndex?'#1565c0':'#78909c'};color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;font-family:sans-serif;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3)">${i+1}</div>`,
-      iconSize:[24,24],iconAnchor:[12,12],className:''
-    });
-    wpMarkers.push(L.marker([wp.lat,wp.lon],{icon}).bindTooltip(wp.name,{permanent:false,direction:'top'}).addTo(map));
+  map.on('dragstart',function(){setFollow(false);});
+  document.getElementById('btnFollow').addEventListener('click',function(){setFollow(!followBoat);});
+  document.getElementById('btnNautical').addEventListener('click',function(){
+    nautOn=!nautOn;
+    if(nautOn)nautLayer.addTo(map);else map.removeLayer(nautLayer);
+    document.getElementById('btnNautical').classList.toggle('on',nautOn);
   });
-
-  if(anchorPos){
-    if(anchorCircle) map.removeLayer(anchorCircle);
-    anchorCircle=L.circle([anchorPos.lat,anchorPos.lon],{radius:warnings.anchor.val,color:'#ff9800',fillColor:'#ff9800',fillOpacity:0.08,weight:1.5,dashArray:'4,4'}).addTo(map);
-  }
+  document.getElementById('btnCenter').addEventListener('click',function(){
+    setFollow(true);if(lat!=null)map.setView([lat,lon],map.getZoom());
+  });
 }
 
-document.getElementById('btnNautical').addEventListener('click',()=>{
-  nauticalOn=!nauticalOn;
-  if(nauticalOn){nauticalLayer.addTo(map);document.getElementById('btnNautical').classList.add('active');}
-  else{map.removeLayer(nauticalLayer);document.getElementById('btnNautical').classList.remove('active');}
-});
-document.getElementById('btnFollow').addEventListener('click',()=>{
-  mapFollowBoat=!mapFollowBoat;
-  const btn=document.getElementById('btnFollow');
-  btn.classList.toggle('active',mapFollowBoat);
-  btn.textContent=mapFollowBoat?'🔒':'🔓';
-  if(mapFollowBoat&&lat) map.setView([lat,lon],map.getZoom());
-});
-document.getElementById('btnCenter').addEventListener('click',()=>{mapFollowBoat=true;document.getElementById('btnFollow').classList.add('active');document.getElementById('btnFollow').textContent='🔒';if(map&&lat)map.setView([lat,lon],map.getZoom());});
-map.on('dragstart',()=>{mapFollowBoat=false;document.getElementById('btnFollow').classList.remove('active');document.getElementById('btnFollow').textContent='🔓';});
-map.on('zoomstart',()=>{ if(!mapFollowBoat) return; mapFollowBoat=false;document.getElementById('btnFollow').classList.remove('active');document.getElementById('btnFollow').textContent='🔓'; });
+function setFollow(on){
+  followBoat=on;
+  document.getElementById('btnFollow').textContent=on?'🔒':'🔓';
+  document.getElementById('btnFollow').classList.toggle('on',on);
+}
 
-// ---- COMPASS ----
-function tryCompassPermission(){
+function updateMap(){
+  if(!map||lat==null)return;
+  boatMark.setLatLng([lat,lon]);
+  trackLine.setLatLngs(track);
+  if(followBoat)map.panTo([lat,lon],{animate:true,duration:0.8});
+  var h=cHdg!=null?cHdg:(hdg!=null?hdg:0);
+  var el=boatMark.getElement();
+  if(el){var s=el.querySelector('svg');if(s)s.style.transform='rotate('+h+'deg)';}
+  wpMarks.forEach(function(m){map.removeLayer(m);});wpMarks=[];
+  wps.forEach(function(wp,i){
+    var ic=L.divIcon({html:'<div style="width:24px;height:24px;background:'+(i===activeWp?'#1565c0':'#78909c')+';color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;font-family:sans-serif;border:2px solid #fff">'+(i+1)+'</div>',iconSize:[24,24],iconAnchor:[12,12],className:''});
+    wpMarks.push(L.marker([wp.lat,wp.lon],{icon:ic}).bindTooltip(wp.name,{direction:'top'}).addTo(map));
+  });
+}
+
+function tryCompass(){
   if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
-    document.getElementById('compassPermBanner').style.display='block';
-    document.getElementById('compassPermBtn').addEventListener('click',()=>{
-      DeviceOrientationEvent.requestPermission().then(s=>{
-        if(s==='granted'){
-          window.addEventListener('deviceorientationabsolute',onOrientation,true);
-          window.addEventListener('deviceorientation',onOrientation,true);
-          document.getElementById('compassPermBanner').style.display='none';
-        }
+    document.getElementById('compassBanner').style.display='block';
+    document.getElementById('compassBtn').addEventListener('click',function(){
+      DeviceOrientationEvent.requestPermission().then(function(s){
+        if(s==='granted'){window.addEventListener('deviceorientationabsolute',onOrient,true);window.addEventListener('deviceorientation',onOrient,true);document.getElementById('compassBanner').style.display='none';}
       });
     });
-  } else {
-    window.addEventListener('deviceorientationabsolute',onOrientation,true);
-    window.addEventListener('deviceorientation',onOrientation,true);
-  }
+  }else{window.addEventListener('deviceorientationabsolute',onOrient,true);window.addEventListener('deviceorientation',onOrient,true);}
 }
-function onOrientation(e){
-  let alpha=null;
-  if(e.webkitCompassHeading!=null) alpha=e.webkitCompassHeading;
-  else if(e.absolute&&e.alpha!=null) alpha=(360-e.alpha)%360;
-  else if(e.alpha!=null) alpha=(360-e.alpha)%360;
-  if(alpha!=null){compassHeading=alpha;drawCompass();}
-}
+function onOrient(e){var a=null;if(e.webkitCompassHeading!=null)a=e.webkitCompassHeading;else if(e.alpha!=null)a=(360-e.alpha)%360;if(a!=null){cHdg=a;drawCompass();}}
 function drawCompass(){
-  const c=document.getElementById('compassCanvas');if(!c)return;
-  const ctx=c.getContext('2d');const W=200,H=200,cx=100,cy=100,r=88;
-  ctx.clearRect(0,0,W,H);
-  const h=compassHeading!=null?compassHeading:(heading!=null?heading:0);
-  const hasData=compassHeading!=null||heading!=null;
+  var c=document.getElementById('compass');if(!c)return;
+  var ctx=c.getContext('2d'),cx=100,cy=100,r=88;
+  ctx.clearRect(0,0,200,200);
+  var h=cHdg!=null?cHdg:(hdg!=null?hdg:0),has=cHdg!=null||hdg!=null;
   ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle='#e0e8f0';ctx.lineWidth=1;ctx.stroke();
-  for(let i=0;i<360;i+=5){
-    const a=(i-90)*Math.PI/180,inner=i%10===0?r-10:r-6;
-    ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);ctx.lineTo(cx+Math.cos(a)*inner,cy+Math.sin(a)*inner);
-    ctx.strokeStyle=i%90===0?'#1565c0':'#c0ccd8';ctx.lineWidth=i%10===0?1.5:0.8;ctx.stroke();
-  }
-  ['N','O','S','V'].forEach((d,i)=>{
-    const a=(i*90-90)*Math.PI/180,tx=cx+Math.cos(a)*68,ty=cy+Math.sin(a)*68;
-    ctx.fillStyle=d==='N'?'#c62828':'#1565c0';ctx.font=d==='N'?'bold 14px DM Sans,system-ui':'13px DM Sans,system-ui';
-    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(d,tx,ty);
-  });
-  if(hasData){
-    const nr=(h-90)*Math.PI/180;
-    ctx.save();ctx.translate(cx,cy);ctx.rotate(nr);
-    ctx.beginPath();ctx.moveTo(0,-58);ctx.lineTo(-7,0);ctx.lineTo(0,-4);ctx.lineTo(7,0);ctx.closePath();ctx.fillStyle='#c62828';ctx.fill();
-    ctx.beginPath();ctx.moveTo(0,58);ctx.lineTo(-7,0);ctx.lineTo(0,4);ctx.lineTo(7,0);ctx.closePath();ctx.fillStyle='#b0bec5';ctx.fill();
-    ctx.restore();
-  }
-  ctx.beginPath();ctx.arc(cx,cy,6,0,Math.PI*2);ctx.fillStyle='#0d2137';ctx.fill();
-  ctx.beginPath();ctx.arc(cx,cy,3,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
-  document.getElementById('compassDeg').textContent=hasData?Math.round(((h%360)+360)%360)+'°':'---°';
-  document.getElementById('compassDir').textContent=hasData?dirFromDeg(h):'Söker riktning…';
+  for(var i=0;i<360;i+=5){var a=(i-90)*Math.PI/180,inn=i%10===0?r-10:r-6;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);ctx.lineTo(cx+Math.cos(a)*inn,cy+Math.sin(a)*inn);ctx.strokeStyle=i%90===0?'#1565c0':'#c0ccd8';ctx.lineWidth=i%10===0?1.5:0.8;ctx.stroke();}
+  ['N','O','S','V'].forEach(function(d,i){var a=(i*90-90)*Math.PI/180;ctx.fillStyle=d==='N'?'#c62828':'#1565c0';ctx.font=d==='N'?'bold 14px sans-serif':'13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(d,cx+Math.cos(a)*68,cy+Math.sin(a)*68);});
+  if(has){var nr=(h-90)*Math.PI/180;ctx.save();ctx.translate(cx,cy);ctx.rotate(nr);ctx.beginPath();ctx.moveTo(0,-58);ctx.lineTo(-7,0);ctx.lineTo(0,-4);ctx.lineTo(7,0);ctx.closePath();ctx.fillStyle='#c62828';ctx.fill();ctx.beginPath();ctx.moveTo(0,58);ctx.lineTo(-7,0);ctx.lineTo(0,4);ctx.lineTo(7,0);ctx.closePath();ctx.fillStyle='#b0bec5';ctx.fill();ctx.restore();}
+  ctx.beginPath();ctx.arc(cx,cy,6,0,Math.PI*2);ctx.fillStyle='#0d2137';ctx.fill();ctx.beginPath();ctx.arc(cx,cy,3,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  document.getElementById('cDeg').textContent=has?Math.round(((h%360)+360)%360)+'°':'---°';
+  document.getElementById('cDir').textContent=has?dir(h):'Söker riktning…';
 }
 drawCompass();
 
-// ---- WAYPOINTS ----
-function haversine(lat1,lon1,lat2,lon2){
-  const R=3440.065,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
-  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+function hav(a,b,c,d){var R=3440.065,dL=(c-a)*Math.PI/180,dN=(d-b)*Math.PI/180,x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dN/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+function brg(a,b,c,d){var dN=(d-b)*Math.PI/180,y=Math.sin(dN)*Math.cos(c*Math.PI/180),x=Math.cos(a*Math.PI/180)*Math.sin(c*Math.PI/180)-Math.sin(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.cos(dN);return((Math.atan2(y,x)*180/Math.PI)+360)%360;}
+function saveWps(){localStorage.setItem('sjonav_wps',JSON.stringify(wps));}
+function renderWps(){
+  var el=document.getElementById('wpList');
+  if(!wps.length){el.innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:8px">Inga waypoints ännu.</div>';return;}
+  el.innerHTML=wps.map(function(wp,i){var dist=lat!=null?hav(lat,lon,wp.lat,wp.lon).toFixed(2)+' nm':'--';var b=lat!=null?Math.round(brg(lat,lon,wp.lat,wp.lon))+'°':'--';return'<div class="wp-item'+(i===activeWp?' act':'')+'" data-i="'+i+'"><div class="wp-num">'+(i+1)+'</div><div class="wp-info"><div class="wp-name">'+wp.name+'</div><div class="wp-meta">'+dist+' · '+b+'</div></div><div class="wp-del" data-d="'+i+'">✕</div></div>';}).join('');
+  el.querySelectorAll('.wp-item').forEach(function(e){e.addEventListener('click',function(ev){if(ev.target.dataset.d!=null&&ev.target.dataset.d!==''){wps.splice(+ev.target.dataset.d,1);if(activeWp>=wps.length)activeWp=Math.max(0,wps.length-1);saveWps();renderWps();if(map)updateMap();}else{activeWp=+e.dataset.i;renderWps();if(map)updateMap();updateStats();}});});
 }
-function bearing(lat1,lon1,lat2,lon2){
-  const dLon=(lon2-lon1)*Math.PI/180,y=Math.sin(dLon)*Math.cos(lat2*Math.PI/180);
-  const x=Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180)-Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dLon);
-  return((Math.atan2(y,x)*180/Math.PI)+360)%360;
-}
-function saveWaypoints(){localStorage.setItem('sjonav_wps',JSON.stringify(waypoints));}
-function renderWaypoints(){
-  const list=document.getElementById('wpList');
-  if(!waypoints.length){list.innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:12px">Inga waypoints ännu.</div>';return;}
-  list.innerHTML=waypoints.map((wp,i)=>{
-    const dist=lat!=null?haversine(lat,lon,wp.lat,wp.lon).toFixed(2)+' nm':'--';
-    const brg=lat!=null?Math.round(bearing(lat,lon,wp.lat,wp.lon))+'°':'--';
-    return`<div class="wp-item ${i===activeWpIndex?'active-wp':''}" data-i="${i}">
-      <div class="wp-num">${i+1}</div>
-      <div class="wp-info"><div class="wp-name">${wp.name}</div><div class="wp-meta">${dist} · ${brg} · ${wp.lat.toFixed(4)}°N ${wp.lon.toFixed(4)}°Ö</div></div>
-      <div class="wp-del" data-del="${i}">✕</div></div>`;
-  }).join('');
-  list.querySelectorAll('.wp-item').forEach(el=>{
-    el.addEventListener('click',e=>{
-      if(e.target.dataset.del!=null)return;
-      activeWpIndex=+el.dataset.i;renderWaypoints();updateMap();updateUI();
-    });
-  });
-  list.querySelectorAll('[data-del]').forEach(el=>{
-    el.addEventListener('click',e=>{
-      e.stopPropagation();waypoints.splice(+el.dataset.del,1);
-      if(activeWpIndex>=waypoints.length)activeWpIndex=Math.max(0,waypoints.length-1);
-      saveWaypoints();renderWaypoints();updateMap();
-    });
-  });
-}
-renderWaypoints();
-document.getElementById('wpAddBtn').addEventListener('click',()=>{
-  if(lat==null){alert('Väntar på GPS-position…');return;}
-  const name=document.getElementById('wpNameInput').value.trim()||'Waypoint '+(waypoints.length+1);
-  waypoints.push({name,lat,lon,ts:Date.now()});
-  document.getElementById('wpNameInput').value='';
-  saveWaypoints();renderWaypoints();updateMap();
-});
+renderWps();
+document.getElementById('wpAdd').addEventListener('click',function(){if(lat==null){alert('Väntar på GPS…');return;}var n=document.getElementById('wpInput').value.trim()||'Waypoint '+(wps.length+1);wps.push({name:n,lat:lat,lon:lon});document.getElementById('wpInput').value='';saveWps();renderWps();if(map)updateMap();});
 
-// ---- WEATHER ----
-async function fetchWeather(){
+function fetchWeather(){
   if(lat==null)return;
-  try{
-    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,cloud_cover,visibility&wind_speed_unit=ms&timezone=auto`;
-    const r=await fetch(url);const d=await r.json();const c=d.current;
-    document.getElementById('wxCard').style.display='block';
-    document.getElementById('wxLoadBanner').style.display='none';
-    document.getElementById('wxLocation').textContent=lat.toFixed(3)+'°N '+lon.toFixed(3)+'°Ö';
+  fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat.toFixed(4)+'&longitude='+lon.toFixed(4)+'&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,cloud_cover,visibility&wind_speed_unit=ms&timezone=auto')
+  .then(function(r){return r.json();}).then(function(d){
+    var c=d.current;
+    document.getElementById('wxCard').style.display='block';document.getElementById('wxBanner').style.display='none';
+    document.getElementById('wxLoc').textContent=lat.toFixed(3)+'°N '+lon.toFixed(3)+'°Ö';
     document.getElementById('wxTemp').textContent=Math.round(c.temperature_2m)+'°';
-    document.getElementById('wxDesc').textContent=wxCodeToDesc(c.weather_code);
-    document.getElementById('wxIcon').textContent=wxCodeToIcon(c.weather_code);
+    document.getElementById('wxDesc').textContent=wxDesc(c.weather_code);
+    document.getElementById('wxIcon').textContent=wxIco(c.weather_code);
     document.getElementById('wxWind').textContent=Math.round(c.wind_speed_10m)+' m/s';
-    document.getElementById('wxWindDir').textContent=dirFromDeg(c.wind_direction_10m);
-    document.getElementById('wxHumid').textContent=Math.round(c.relative_humidity_2m)+'%';
+    document.getElementById('wxWDir').textContent=dir(c.wind_direction_10m);
+    document.getElementById('wxHum').textContent=Math.round(c.relative_humidity_2m)+'%';
     document.getElementById('wxPres').textContent=Math.round(c.surface_pressure)+' hPa';
     document.getElementById('wxVis').textContent=c.visibility!=null?(c.visibility/1000).toFixed(1)+' km':'--';
     document.getElementById('wxCloud').textContent=Math.round(c.cloud_cover)+'%';
-    const bft=msToBft(c.wind_speed_10m);
-    document.getElementById('wxBft').textContent=bft+' Bft';
-    document.getElementById('wxRec').textContent=bftRec(bft);
-  }catch(e){document.getElementById('wxLoadBanner').style.display='block';}
+    var b=bft(c.wind_speed_10m);document.getElementById('wxBft').textContent=b+' Bft';document.getElementById('wxRec').textContent=bftR(b);
+  }).catch(function(){document.getElementById('wxBanner').style.display='block';});
 }
-document.getElementById('wxRefreshBtn').addEventListener('click',fetchWeather);
-function msToBft(ms){const t=[0.3,1.6,3.4,5.5,8.0,10.8,13.9,17.2,20.8,24.5,28.5,32.7];for(let i=0;i<t.length;i++)if(ms<t[i])return i;return 12;}
-function bftRec(b){if(b<=2)return'✅ Lugnt – utmärkt för alla båtar';if(b<=3)return'✅ Lätt bris – bra segling';if(b<=4)return'✅ God bris – aktivt seglingsväder';if(b<=5)return'⚠ Frisk bris – kräver erfarenhet';if(b<=6)return'⚠ Stark bris – var försiktig';if(b<=7)return'🚫 Styv kuling – undvik resa';return'🚫 Storm – stanna i hamn';}
-function wxCodeToDesc(c){if(c===0)return'Klart';if(c<=2)return'Delvis molnigt';if(c===3)return'Mulet';if(c<=49)return'Dimma';if(c<=59)return'Duggregn';if(c<=69)return'Regn';if(c<=79)return'Snö';if(c<=84)return'Regnskurar';if(c<=94)return'Åskväder';return'Svårt oväder';}
-function wxCodeToIcon(c){if(c===0)return'☀';if(c<=2)return'⛅';if(c===3)return'☁';if(c<=49)return'🌫';if(c<=59)return'🌦';if(c<=69)return'🌧';if(c<=79)return'❄';if(c<=84)return'🌦';if(c<=94)return'⛈';return'🌀';}
+document.getElementById('wxRefresh').addEventListener('click',fetchWeather);
+function bft(m){var t=[0.3,1.6,3.4,5.5,8,10.8,13.9,17.2,20.8,24.5,28.5,32.7];for(var i=0;i<t.length;i++)if(m<t[i])return i;return 12;}
+function bftR(b){if(b<=2)return'✅ Lugnt';if(b<=3)return'✅ Lätt bris';if(b<=4)return'✅ God bris';if(b<=5)return'⚠ Frisk bris';if(b<=6)return'⚠ Stark bris';if(b<=7)return'🚫 Kuling';return'🚫 Storm';}
+function wxDesc(c){if(c===0)return'Klart';if(c<=2)return'Delvis molnigt';if(c===3)return'Mulet';if(c<=49)return'Dimma';if(c<=59)return'Duggregn';if(c<=69)return'Regn';if(c<=79)return'Snö';if(c<=84)return'Regnskurar';if(c<=94)return'Åskväder';return'Oväder';}
+function wxIco(c){if(c===0)return'☀';if(c<=2)return'⛅';if(c===3)return'☁';if(c<=49)return'🌫';if(c<=59)return'🌦';if(c<=69)return'🌧';if(c<=79)return'❄';if(c<=84)return'🌦';if(c<=94)return'⛈';return'🌀';}
 
-
-
-// ---- START ----
-window.addEventListener('load', function() {
+window.addEventListener('load',function(){
   initMap();
-  startGPS();
-  tryCompassPermission();
-  window.addEventListener('resize',()=>map&&map.invalidateSize());
-  setInterval(()=>{renderWaypoints();updateMap();checkWarnings();},3000);
+  tryCompass();
+  setInterval(function(){renderWps();if(map)updateMap();},3000);
 });
 </script>
 </body>
