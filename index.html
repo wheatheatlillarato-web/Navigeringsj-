@@ -93,6 +93,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);font-family:var(--fon
       <div class="obl" id="sPos">Söker position…</div>
       <div class="obr">
         <div class="fab on" id="btnFollow">🔒</div>
+        <div class="fab" id="btnLayer">🗺</div>
         <div class="fab" id="btnNautical">⚓</div>
         <div class="fab" id="btnCenter">⊙</div>
       </div>
@@ -196,8 +197,22 @@ function updateStats(){
 
 function initMap(){
   map=L.map('map',{zoomControl:false,attributionControl:false,touchZoom:true,tap:false,dragging:true});
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+  var osmLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19});
+  var satLayer=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19});
   nautLayer=L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{maxZoom:18});
+  osmLayer.addTo(map);
+  map.setView([59.32,18.07],13);
+  var layers=[osmLayer,satLayer];
+  var layerNames=['🗺','🛰'];
+  var currentLayer=0;
+  document.getElementById('btnLayer').addEventListener('click',function(){
+    map.removeLayer(layers[currentLayer]);
+    currentLayer=(currentLayer+1)%layers.length;
+    layers[currentLayer].addTo(map);
+    if(nautOn)nautLayer.bringToFront();
+    document.getElementById('btnLayer').textContent=layerNames[currentLayer];
+    document.getElementById('btnLayer').classList.toggle('on',currentLayer===1);
+  });
   map.setView([59.32,18.07],13);
   var svg='<svg width="28" height="28" viewBox="0 0 28 28" style="transform-origin:center"><polygon points="14,2 9,22 14,17 19,22" fill="#c62828" stroke="#fff" stroke-width="1.5"/></svg>';
   boatMark=L.marker([59.32,18.07],{icon:L.divIcon({html:svg,iconSize:[28,28],iconAnchor:[14,14],className:''}),zIndexOffset:1000}).addTo(map);
