@@ -162,6 +162,7 @@
         <div class="map-pos-acc" id="accVal">--</div>
       </div>
       <div class="map-btns-overlay">
+        <div class="map-fab active" id="btnFollow" title="Följ båt">🔒</div>
         <div class="map-fab" id="btnNautical" title="Sjökort">⚓</div>
         <div class="map-fab" id="btnCenter" title="Centrera">⊙</div>
       </div>
@@ -338,7 +339,7 @@ function updateMap(){
   if(!map||lat==null) return;
   boatMarker.setLatLng([lat,lon]);
   trackLine.setLatLngs(mapTrack.map(p=>[p.lat,p.lon]));
-  if(mapFollowBoat) map.setView([lat,lon]);
+  if(mapFollowBoat) map.panTo([lat,lon],{animate:true,duration:0.5});
 
   const h=compassHeading!=null?compassHeading:(heading!=null?heading:0);
   const el=boatMarker.getElement();
@@ -365,8 +366,16 @@ document.getElementById('btnNautical').addEventListener('click',()=>{
   if(nauticalOn){nauticalLayer.addTo(map);document.getElementById('btnNautical').classList.add('active');}
   else{map.removeLayer(nauticalLayer);document.getElementById('btnNautical').classList.remove('active');}
 });
-document.getElementById('btnCenter').addEventListener('click',()=>{mapFollowBoat=true;if(map&&lat)map.setView([lat,lon]);});
-map&&map.on('dragstart',()=>mapFollowBoat=false);
+document.getElementById('btnFollow').addEventListener('click',()=>{
+  mapFollowBoat=!mapFollowBoat;
+  const btn=document.getElementById('btnFollow');
+  btn.classList.toggle('active',mapFollowBoat);
+  btn.textContent=mapFollowBoat?'🔒':'🔓';
+  if(mapFollowBoat&&lat) map.setView([lat,lon],map.getZoom());
+});
+document.getElementById('btnCenter').addEventListener('click',()=>{mapFollowBoat=true;document.getElementById('btnFollow').classList.add('active');document.getElementById('btnFollow').textContent='🔒';if(map&&lat)map.setView([lat,lon],map.getZoom());});
+map.on('dragstart',()=>{mapFollowBoat=false;document.getElementById('btnFollow').classList.remove('active');document.getElementById('btnFollow').textContent='🔓';});
+map.on('zoomstart',()=>{ if(!mapFollowBoat) return; mapFollowBoat=false;document.getElementById('btnFollow').classList.remove('active');document.getElementById('btnFollow').textContent='🔓'; });
 
 // ---- COMPASS ----
 function tryCompassPermission(){
